@@ -1,0 +1,89 @@
+"""
+edna_survey123_clean python settings
+Created By: mkimble
+LAST MODIFIED: 09/15/2021
+"""
+
+import os
+
+########################################
+# RELATIVE INPUT DIRECTORIES           #
+########################################
+parser_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE_DIR = parser_dir.replace('\\', '/')
+
+MAIN_INPUT_DIR = BASE_DIR+"/data/01_Original/zip/"
+MAIN_INPUT_STRIP_DIR = BASE_DIR+"/data/01_Original/"
+MAIN_INPUT_ATTACHMENTS_DIR = MAIN_INPUT_STRIP_DIR+"attachments/"
+MAIN_OUTPUT_DIR = BASE_DIR+"/data/02_Working/PyOutput/"
+
+########################################
+# AGOL GEODATABASE AND USER SETTINGS   #
+########################################
+# Item ID of the file geodatabase
+SURVEY123_ITEM_ID = "survey123_item_id"
+# Survey123 version
+SURVEY123_VERSION = "survey123_version"
+AGOL_USERNAME = "your_agol_username"
+AGOL_PASS = "your_agol_password"
+
+########################################
+# GDRIVE API USER SETTINGS             #
+########################################
+# obtain your JSON API file from google drive API
+# https://medium.com/craftsmenltd/from-csv-to-google-sheet-using-python-ef097cb014f9
+GDRIVE_PRIVATE_KEY_FILE = MAIN_INPUT_STRIP_DIR+"your_private_key_file.json"
+
+########################################
+# SURVEY123 INPUT FILENAMES            #
+########################################
+SURVEY_DATA = MAIN_INPUT_STRIP_DIR+"eDNA_Sampling_v14_0.csv"
+REP_CREW = MAIN_INPUT_STRIP_DIR+"rep_crew_1.csv"
+REP_ENVMEAS = MAIN_INPUT_STRIP_DIR+"rep_envmeas_2.csv"
+REP_COLLECTION = MAIN_INPUT_STRIP_DIR+"rep_collection_3.csv"
+REP_FILTER = MAIN_INPUT_STRIP_DIR+"rep_filter_4.csv"
+
+########################################
+# SURVEY123 OUTPUT FILENAMES           #
+########################################
+SURVEY_SUB_FILENAME = "eDNA_Sampling_v14_sub"
+SURVEY_COLLECTION_JOIN_FILENAME = "survey_collection_join"
+CLEAN_FILTER_JOIN_FILENAME = "clean_filter_join"
+
+########################################
+# SURVEY123 BACKUP DIRECTORIES         #
+########################################
+BACKUP_DIR = "your/data/backup/location"
+ATTACHMENTS_BACKUP_DIR = "your/attachments/backup/location"
+
+########################################
+# FGDB ATTACHMENTS SETTINGS            #
+########################################
+# settings for extracting images from the file geodatabase
+# Path to attachment table
+ATTACHMENTS_TABLE = MAIN_INPUT_DIR+SURVEY123_ITEM_ID+".gdb/rep_img__ATTACH"
+# Field name of Blob data type field in attachment table
+BLOB_FIELD = "DATA"
+# Field name in attachment table that contains attachment name
+ATTACHMENTS_FIELD = "ATT_NAME"
+# Output folder to export attachments to
+ATTACHMENTS_DIR = MAIN_INPUT_ATTACHMENTS_DIR
+
+########################################
+# ERROR LOGGING DIRECTORY              #
+########################################
+LOG_FILE_DIR = BASE_DIR+"/logs/"
+
+########################################
+# PROJECTS DICTIONARY                  #
+########################################
+# Do not change, this is used to convert coded project values into their label
+projects = {
+    'name': ['prj_medna', 'prj_theme1', 'prj_lbb', 'prj_ale', 'prj_fisheries', 'prj_theme2',
+             'prj_habs', 'prj_spmove', 'prj_theme3', 'prj_indexsites', 'prj_macroint',
+             'prj_microbio', 'prj_commsci'],
+    'label': ['Maine eDNA', 'Theme 1', 'Larval Black Box (T1)', 'Alewife (T1)', 'Fisheries eDNA (T1)',
+              'Theme 2', 'Harmful algal blooms (T2)', 'Species on the move (T2)', 'Theme 3', 'Index Sites (T3)',
+              'Macrosystem Integration (T3)', 'Microbial biosensors (T3)', 'Community Science']
+}
+SURVEY_PROJECTS = dict(zip(projects['name'], projects['label']))
