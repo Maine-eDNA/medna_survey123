@@ -32,11 +32,13 @@ def run_download_upload(formats, download=True, upload=True, overwrite=True,
     """
     try:
         api_logger.info("[START] run_download_upload")
+        # if download is true, then call DownloadCleanJoinData to download from AGOL
         if download:
             for fmt in formats:
                 download_result = DownloadCleanJoinData(fmt, overwrite, extract_attachments, join_tables,
                                                         backup, attachments_backup)
                 download_result.download_data()
+        # if upload is true, then call UploadData to upload to Google Sheets
         if upload:
             for fmt in formats:
                 if fmt == 'CSV':
@@ -48,6 +50,35 @@ def run_download_upload(formats, download=True, upload=True, overwrite=True,
 
 
 class DownloadCleanJoinData:
+    """
+    :param download_format: Expects array of formats, e.g., ['CSV', 'File Geodatabase']
+    :param overwrite: Boolean. If true, overwrite existing files with shared filepath.
+    :param extract_attachments: Boolean. If true, extract attachments from FGDB.
+    :param join_tables: Boolean. If true, join and save cleaned original data to CSV.
+    :param backup: Boolean. If true, save copy of zips downloaded from AGOL to desired backup location.
+    :param attachments_backup: Boolean. If true, save copy of attachments extracted from FGDB to desired backup location.
+    :param main_input_dir: Primary directory for AGOL downloads.
+    :param main_input_strip_dir: Primary directory for saving cleaned original data.
+    :param survey123_item_id: Item ID of the file geodatabase
+    :param survey123_version: Version of the Maine-eDNA field sampling survey.
+    :param agol_username: UMaineGIS AGOL username
+    :param agol_pass: UMaineGIS AGOL password
+    :param blob_field: Field name of Blob data type field in attachment table
+    :param attachments_field: Field name in attachment table that contains attachment name
+    :param attachments_dir: Primary directory for attachments extracted from FGDB.
+    :param attachments_backup_dir: Primary backup directory for attachments extracted from FGDB.
+    :param main_output_dir: Primary output directory for joined data.
+    :param backup_dir: Primary backup directory for zips downloaded from AGOL.
+    :param survey_data: Filepath to cleaned eDNA_Sampling_v14_0.csv (strip /n within "")
+    :param rep_crew: Filepath to cleaned rep_crew_1.csv (strip /n within "")
+    :param rep_envmeas: Filepath to cleaned rep_envmeas_2.csv (strip /n within "")
+    :param rep_collection: Filepath to cleaned rep_collection_3.csv (strip /n within "")
+    :param rep_filter: Filepath to cleaned rep_filter_4.csv (strip /n within "")
+    :param survey_projects: Expects python dictionary. Used to convert coded project values to label.
+    :param survey_sub_filename: Filename for eDNA_Sampling_v14_0 subset CSV.
+    :param survey_collection_join_filename: Filename for eDNA_Sampling_v14_0 and rep_collection_3 joined CSV.
+    :param clean_filter_join_filename: Filepath for eDNA_Sampling_v14_0, rep_collection_3, and rep_filter_4 joined CSV.
+    """
     def __init__(self, download_format,
                  overwrite=False,
                  extract_attachments=True,
@@ -65,7 +96,7 @@ class DownloadCleanJoinData:
                  attachments_dir=settings.ATTACHMENTS_DIR,
                  attachments_backup_dir=settings.ATTACHMENTS_BACKUP_DIR,
                  main_output_dir=settings.MAIN_OUTPUT_DIR,
-                 backup_dir = settings.BACKUP_DIR,
+                 backup_dir=settings.BACKUP_DIR,
                  survey_data=settings.SURVEY_DATA,
                  rep_crew=settings.REP_CREW,
                  rep_envmeas=settings.REP_ENVMEAS,
@@ -75,6 +106,7 @@ class DownloadCleanJoinData:
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
                  clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME):
+        # overwrite boolean
         self.overwrite = overwrite
         # input dir
         self.main_input_dir = main_input_dir
@@ -85,39 +117,45 @@ class DownloadCleanJoinData:
         self.agol_username = agol_username
         self.agol_pass = agol_pass
         self.download_format = download_format
-        # fgdb extraction
+        # extract attachments boolean
         self.extract_attachments = extract_attachments
+        # FGDB extraction settings
         self.blob_field = blob_field
         self.attachments_field = attachments_field
+        # Attachments dir
         self.attachments_dir = attachments_dir
-        self.attachments_backup = attachments_backup
-        self.attachments_backup_dir = attachments_backup_dir
-        # output dir
+        # Output dir
         self.main_output_dir = main_output_dir
-        # backup dir
-        self.backup_dir = backup_dir
+        # Backup data and backup attachments boolean
         self.backup = backup
-        # joining data
-        self.join_tables = join_tables
-        # original cleaned data (strip /n within "")
+        self.attachments_backup = attachments_backup
+        # Backup dirs
+        self.backup_dir = backup_dir
+        self.attachments_backup_dir = attachments_backup_dir
+        # Cleaned original data (strip /n within "")
         self.survey_data = survey_data
         self.rep_crew = rep_crew
         self.rep_envmeas = rep_envmeas
         self.rep_collection = rep_collection
         self.rep_filter = rep_filter
         self.survey_projects = survey_projects
-        # output data
+        # Join data boolean
+        self.join_tables = join_tables
+        # Joined original data
         self.survey_sub_filename = survey_sub_filename
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
-
         export_fmt = ['File Geodatabase', 'Shapefile', 'CSV', 'DF']
         name_fmt = ['FGDB', 'SHP', 'CSV', 'DF']
-        fmt_df = pd.DataFrame(list(zip(export_fmt, name_fmt)),
-                          columns=['export_fmt', 'name_fmt'])
+        fmt_df = pd.DataFrame(list(zip(export_fmt, name_fmt)), columns=['export_fmt', 'name_fmt'])
         self.fmt_df = fmt_df
 
     def download_data(self):
+        """
+        Download formats from AGOL feature layer. If FGDB and extract_attachments is true, extract attachments.
+        If overwrite is true, overwrite cleaned data. If join_tables, join clean data tables and export as CSV.
+        If backup, save downloaded AGOL zips to backup_dir.
+        """
         try:
             api_logger.info("[START] download_data")
             # https://support.esri.com/en/technical-article/000018909
@@ -173,6 +211,10 @@ class DownloadCleanJoinData:
             raise RuntimeError("** Error: download_data Failed (" + str(err) + ")")
 
     def extract_attachments_fgdb(self, fgdb_filename):
+        """
+        If FGDB and extract_attachments is true, extract attachments. If attachments_backup is true,
+        save extracted attachments to attachments_backup_dir.
+        """
         try:
             api_logger.info("[START] extract_attachments_fgdb")
             main_input_dir = self.main_input_dir
@@ -198,27 +240,32 @@ class DownloadCleanJoinData:
             raise RuntimeError("** Error: extract_attachments_fgdb Failed (" + str(err) + ")")
 
     def clean_data(self):
+        """
+        Note text fields allow carriage returns, but carriage returns are not stripped from original data.
+        These new lines cause issues with reading in CSV data directly from AGOL.
+        clean_data finds and replaces carriage returns in text fields with a space to resolve this issue.
+        """
         # https://stackoverflow.com/questions/38758450/remove-carriage-return-from-text-file/38776444
         # https://stackoverflow.com/questions/17658055/how-can-i-remove-carriage-return-from-a-text-file-with-python#:~:text=Depending%20on%20the%20type%20of,rstrip()%20.&text=Python%20opens%20files%20in%20so,so%20newlines%20are%20always%20%5Cn%20.
-        # import file locations from settings.py so that they only need to be changed in one location
         try:
             api_logger.info("[START] clean_data")
             main_input_dir = self.main_input_dir
             main_input_strip_dir = self.main_input_strip_dir
-            file_list = os.listdir(main_input_dir)  # Creates a list of all items within the Input Folder Path.
+
+            # Creates a list of all items within the Input Folder Path.
+            file_list = os.listdir(main_input_dir)
             for file in file_list:
-                old_file_name, file_extension = os.path.splitext(file)
+                original_filename, file_extension = os.path.splitext(file)
                 # Splits all of the items within the InputFolder
                 # based on the File Name and it's Extension and sets them to the variables
                 # TheFileName and TheFileExtension.
                 # Since this is in a for loop, it will go through each file and execute the commands within the for loop
                 # on each individual file based on specified parameters.
                 if file_extension == ".csv":  # the specified parameters are items with the file extension .csv.
-                    input_file = main_input_dir + old_file_name + file_extension
-                    output_file = main_input_strip_dir + old_file_name + file_extension
+                    input_file = main_input_dir + original_filename + file_extension
+                    output_file = main_input_strip_dir + original_filename + file_extension
                     # "if" the file extension is .csv, then the following functions will be executed.
                     api_logger.info("clean_data: cleaning " + input_file)
-
                     with open(input_file, 'r') as file_read:
                         with open(output_file, "w") as file_write:
                             content = file_read.read()
@@ -226,7 +273,6 @@ class DownloadCleanJoinData:
                             # lines. regex is used here to find these carriage returns in text fields and
                             # replace them with a space
                             content_new = re.sub(r'"[^"]*(?:""[^"]*)*"', lambda m: m.group(0).replace("\n", " "), content)
-                            # content_new = re.sub('[^|\n\r]\R', r'\1', content, flags=re.M)
                             file_write.write(content_new)
                     api_logger.info("clean_data: cleaned " + output_file)
             api_logger.info("[END] clean_data")
@@ -234,10 +280,12 @@ class DownloadCleanJoinData:
             raise RuntimeError("** Error: clean_data Failed (" + str(err) + ")")
 
     def join_data(self):
-        # import file locations from settings.py so that they only need to be changed in one location
+        """
+        Subset cleaned CSVs to desired headers, join, and export to CSV.
+        """
         try:
             api_logger.info("[START] join_data")
-            # read df
+            # read in CSVs as df
             survey_data_df = pd.read_csv(self.survey_data)
             rep_collection_df = pd.read_csv(self.rep_collection)
             rep_filter_df = pd.read_csv(self.rep_filter)
@@ -276,9 +324,10 @@ class DownloadCleanJoinData:
             # if the site_id was other, change system type to other
             survey_sub.loc[survey_sub['site_id'].str.lower() == 'other', 'system_type'] = 'other'
 
-            # when making a copy, it generally has to be specified or the two copies will
-            # be linked (changes in one will affect the other)
+            # when making a copy(), it generally has to be specified or the two copies will
+            # be linked (changes in one will affect the other). Also raises SettingwithCopyWarning if not present.
             survey_sub_output = survey_sub.copy()
+            # subset
             survey_sub_output = survey_sub_output[['survey_GlobalID', 'survey_date', 'survey_month', 'survey_year',
                                                    'projects', 'supervisor', 'username', 'recorder_first_name',
                                                    'recorder_last_name', 'system_type', 'site_id', 'other_site_id',
@@ -291,11 +340,12 @@ class DownloadCleanJoinData:
             api_logger.info("join_data: To CSV " + self.survey_sub_filename)
             output_file = self.main_output_dir + self.survey_sub_filename + ".csv"
             survey_sub_output.to_csv(output_file, encoding='utf-8')
-
+            # subset
             rep_collection_sub = rep_collection_df[['GlobalID', 'ParentGlobalID', 'Collection Type',
                                                     'Water Collection DateTime', 'Water Vessel Label',
                                                     'Water Collection Notes', 'Core DateTime Start',
                                                     'Core Label', 'Core Notes', 'CreationDate']].copy()
+            # rename
             rep_collection_sub = rep_collection_sub.rename(columns={'GlobalID': 'collection_GlobalID',
                                                                     'ParentGlobalID': 'collection_ParentGlobalID',
                                                                     'Collection Type': 'collection_type',
@@ -307,11 +357,11 @@ class DownloadCleanJoinData:
                                                                     'Core Notes': 'core_notes',
                                                                     'CreationDate': 'collection_create_date'})
             # join eDNA_Sampling_v13_sub to rep_collection
-            # survey_collection_join = survey_sub.join(rep_collection_sub.set_index(['collection_ParentGlobalID']), on=['survey_GlobalID'], how='outer')
             survey_collection_join = pd.merge(rep_collection_sub, survey_sub, how='left',
                                               left_on='collection_ParentGlobalID', right_on='survey_GlobalID')
 
             survey_collection_join_output = survey_collection_join.copy()
+            # subset
             survey_collection_join_output = survey_collection_join_output[['survey_GlobalID', 'survey_date',
                                                                            'survey_month', 'survey_year', 'projects',
                                                                            'supervisor', 'username',
@@ -341,10 +391,11 @@ class DownloadCleanJoinData:
             api_logger.info("join_data: To CSV " + self.survey_collection_join_filename)
             output_file = self.main_output_dir + self.survey_collection_join_filename + ".csv"
             survey_collection_join_output.to_csv(output_file, encoding='utf-8')
-
+            # subset
             rep_filter_sub = rep_filter_df[['GlobalID', 'ParentGlobalID', 'Is Prefilter', 'Filter Sample Label',
                                             'Filter Barcode', 'Filter DateTime', 'Filter Type', 'Filter Notes',
                                             'CreationDate']].copy()
+            # rename
             rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_GlobalID',
                                                             'ParentGlobalID': 'filter_ParentGlobalID',
                                                             'Is Prefilter': 'is_prefilter',
@@ -361,8 +412,7 @@ class DownloadCleanJoinData:
             # rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%m/%d/%Y')
             rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%Y-%m-%d %H:%M:%S.%f')
 
-            # filter + sample + survey
-            # ss_filter_join = survey_collection_join.join(rep_filter_sub.set_index(['filter_ParentGlobalID']), on=['collection_GlobalID'], how='outer')
+            # filter + sample + survey join
             ss_filter_join = pd.merge(rep_filter_sub, survey_collection_join, how='left',
                                       left_on='filter_ParentGlobalID', right_on='collection_GlobalID')
 
@@ -395,24 +445,32 @@ class DownloadCleanJoinData:
 
 
 class UploadData:
+    """
+    :param gdrive_private_key: JSON API file from google drive API
+    :param main_output_dir: Directory of joined data.
+    :param survey_sub_filename: Filename for eDNA_Sampling_v14_0 subset CSV.
+    :param survey_collection_join_filename: Filename for eDNA_Sampling_v14_0 and rep_collection_3 joined CSV.
+    :param clean_filter_join_filename: Filepath for eDNA_Sampling_v14_0, rep_collection_3, and rep_filter_4 joined CSV.
+    """
     def __init__(self, gdrive_private_key=settings.GDRIVE_PRIVATE_KEY_FILE,
+                 target_spreadsheet_name=settings.GSHEETS_SPREADSHEET_NAME,
                  main_output_dir=settings.MAIN_OUTPUT_DIR,
-                 clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME,
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
-                 survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME):
+                 survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
+                 clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME):
         self.gdrive_private_key = gdrive_private_key
+        self.target_spreadsheet_name = target_spreadsheet_name
         self.main_output_dir = main_output_dir
-        self.clean_filter_join_filename = clean_filter_join_filename
         self.survey_sub_filename = survey_sub_filename
         self.survey_collection_join_filename = survey_collection_join_filename
-        # self.CLEAN_PREFILTER_JOIN = settings.CLEAN_PREFILTER_JOIN
-        # self.CLEAN_PREFILTER_FILTER_JOIN_FILENAME = settings.CLEAN_PREFILTER_FILTER_JOIN_FILENAME
+        self.clean_filter_join_filename = clean_filter_join_filename
 
     def upload_data(self):
         # https://medium.com/craftsmenltd/from-csv-to-google-sheet-using-python-ef097cb014f9
         try:
             api_logger.info("[START] upload_data")
             gdrive_private_key = self.gdrive_private_key
+            target_spreadsheet_name = self.target_spreadsheet_name
             main_output_dir = self.main_output_dir
             survey_sub_filename = self.survey_sub_filename
             survey_collection_join_filename = self.survey_collection_join_filename
@@ -420,20 +478,24 @@ class UploadData:
 
             scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
                      "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+            # JSON API file from google drive API
             credentials = ServiceAccountCredentials.from_json_keyfile_name(gdrive_private_key, scope)
             client = gspread.authorize(credentials)
 
+            # filepath for joined CSVs to be uploaded
             survey_sub = main_output_dir + survey_sub_filename + ".csv"
             survey_collection_join = main_output_dir + survey_collection_join_filename + ".csv"
             clean_filter = main_output_dir + clean_filter_join_filename + ".csv"
 
-            spreadsheet = client.open('Survey123_filter_data')
+            # name of target spreadsheet
+            spreadsheet = client.open(target_spreadsheet_name)
             worksheet_list = spreadsheet.worksheets()
             upload_list = [survey_sub, survey_collection_join, clean_filter]
 
+            # the filename of each CSV will be used to name each sheet within the target spreadsheet.
             for upload in upload_list:
-                old_file_name, file_extension = os.path.splitext(upload)
-                sheet_name = os.path.basename(old_file_name)
+                upload_filename, file_extension = os.path.splitext(upload)
+                sheet_name = os.path.basename(upload_filename)
                 for sheet in worksheet_list:
                     if sheet.title == sheet_name:
                         sheet_id = sheet.id
