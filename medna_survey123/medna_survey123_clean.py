@@ -213,7 +213,7 @@ class DownloadCleanJoinData:
                 # TheFileName and TheFileExtension.
                 # Since this is in a for loop, it will go through each file and execute the commands within the for loop
                 # on each individual file based on specified parameters.
-                if file_extension == ".csv":  # the specified parameters are items with the file extension .img.
+                if file_extension == ".csv":  # the specified parameters are items with the file extension .csv.
                     input_file = main_input_dir + old_file_name + file_extension
                     output_file = main_input_strip_dir + old_file_name + file_extension
                     # "if" the file extension is .img, then the following functions will be executed.
