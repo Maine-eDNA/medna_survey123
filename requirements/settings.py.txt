@@ -22,7 +22,7 @@ MAIN_OUTPUT_DIR = BASE_DIR+"/data/02_Working/PyOutput/"
 ########################################
 # Item ID of the file geodatabase
 SURVEY123_ITEM_ID = "survey123_item_id"
-# Survey123 version
+# Version of the Maine-eDNA field sampling survey
 SURVEY123_VERSION = "survey123_version"
 AGOL_USERNAME = "your_agol_username"
 AGOL_PASS = "your_agol_password"
@@ -33,6 +33,8 @@ AGOL_PASS = "your_agol_password"
 # obtain your JSON API file from google drive API
 # https://medium.com/craftsmenltd/from-csv-to-google-sheet-using-python-ef097cb014f9
 GDRIVE_PRIVATE_KEY_FILE = MAIN_INPUT_STRIP_DIR+"your_private_key_file.json"
+# name of target google spreadsheet
+GSHEETS_SPREADSHEET_NAME = "target_spreadsheet_name"
 
 ########################################
 # SURVEY123 INPUT FILENAMES            #
@@ -46,6 +48,7 @@ REP_FILTER = MAIN_INPUT_STRIP_DIR+"rep_filter_4.csv"
 ########################################
 # SURVEY123 OUTPUT FILENAMES           #
 ########################################
+# Filename of joined clean data and name of sheets within the target google spreadsheet
 SURVEY_SUB_FILENAME = "eDNA_Sampling_v14_sub"
 SURVEY_COLLECTION_JOIN_FILENAME = "survey_collection_join"
 CLEAN_FILTER_JOIN_FILENAME = "clean_filter_join"
