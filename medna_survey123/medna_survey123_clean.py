@@ -216,7 +216,7 @@ class DownloadCleanJoinData:
                 if file_extension == ".csv":  # the specified parameters are items with the file extension .csv.
                     input_file = main_input_dir + old_file_name + file_extension
                     output_file = main_input_strip_dir + old_file_name + file_extension
-                    # "if" the file extension is .img, then the following functions will be executed.
+                    # "if" the file extension is .csv, then the following functions will be executed.
                     api_logger.info("clean_data: cleaning " + input_file)
 
                     with open(input_file, 'r') as file_read:
