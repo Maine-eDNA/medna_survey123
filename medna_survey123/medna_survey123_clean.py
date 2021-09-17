@@ -429,9 +429,6 @@ class UploadData:
 
             spreadsheet = client.open('Survey123_filter_data')
             worksheet_list = spreadsheet.worksheets()
-            # removing prefilter_filter for now; still needs work
-            # upload_list = [survey_sub, survey_collection_join, clean_prefilter, clean_filter, clean_prefilter_filter]
-            # upload_list = [survey_sub, survey_collection_join, clean_prefilter, clean_filter]
             upload_list = [survey_sub, survey_collection_join, clean_filter]
 
             for upload in upload_list:
