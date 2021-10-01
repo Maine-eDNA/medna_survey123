@@ -104,6 +104,7 @@ class DownloadCleanJoinData:
                  rep_filter=settings.REP_FILTER,
                  survey_projects=settings.SURVEY_PROJECTS,
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
+                 survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
                  clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME):
         # overwrite boolean
@@ -143,6 +144,7 @@ class DownloadCleanJoinData:
         self.join_tables = join_tables
         # Joined original data
         self.survey_sub_filename = survey_sub_filename
+        self.survey_envmeas_join_filename = survey_envmeas_join_filename
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
         export_fmt = ['File Geodatabase', 'Shapefile', 'CSV', 'DF']
@@ -279,17 +281,12 @@ class DownloadCleanJoinData:
         except Exception as err:
             raise RuntimeError("** Error: clean_data Failed (" + str(err) + ")")
 
-    def join_data(self):
-        """
-        Subset cleaned CSVs to desired headers, join, and export to CSV.
-        """
+    def subset_survey_dataset(self):
         try:
-            api_logger.info("[START] join_data")
+            api_logger.info("[START] subset_survey_data")
+            projects_dict = self.survey_projects
             # read in CSVs as df
             survey_data_df = pd.read_csv(self.survey_data)
-            rep_collection_df = pd.read_csv(self.rep_collection)
-            rep_filter_df = pd.read_csv(self.rep_filter)
-            projects_dict = self.survey_projects
 
             # grab specific fields from the csv
             survey_sub = survey_data_df[['GlobalID', 'Survey DateTime', 'Affiliated Projects', 'Supervisor',
@@ -337,9 +334,84 @@ class DownloadCleanJoinData:
             survey_sub_output = survey_sub_output.sort_values(by=['survey_date', 'survey_GlobalID']).reset_index(drop=True)
 
             # write eDNA_Sampling_v14_sub to csv
-            api_logger.info("join_data: To CSV " + self.survey_sub_filename)
+            api_logger.info("subset_survey_dataset: To CSV " + self.survey_sub_filename)
             output_file = self.main_output_dir + self.survey_sub_filename + ".csv"
             survey_sub_output.to_csv(output_file, encoding='utf-8')
+            api_logger.info("[END] subset_survey_dataset")
+
+            return survey_sub
+        except Exception as err:
+            raise RuntimeError("** Error: subset_survey_data Failed (" + str(err) + ")")
+
+    def subset_envmeas_dataset(self):
+        try:
+            api_logger.info("[START] subset_envmeas_dataset")
+            # read in CSVs as df
+            rep_envmeas_df = pd.read_csv(self.rep_envmeas)
+
+            # subset
+            rep_envmeas_sub = rep_envmeas_df[['GlobalID', 'ParentGlobalID', 'Measurement DateTime',
+                                              'Measurement Depth', 'Environmental Instrument',
+                                              'CTD Filename', 'CTD Notes',
+                                              'YSI Filename', 'YSI Model', 'YSI Serial Number', 'YSI Notes',
+                                              'Secchi Depth', 'Secchi Notes',
+                                              'Niskin Number', 'Niskin Notes',
+                                              'Other Instruments', 'Environmental Measurements',
+                                              'Flow Rate', 'Water Temp', 'Salinity', 'pH Scale',
+                                              'PAR1', 'PAR2', 'Turbidity', 'Conductivity', 'Dissolved Oxygen',
+                                              'Pheophytin', 'Chlorophyll a', 'Nitrate and Nitrite', 'Nitrite',
+                                              'Ammonium', 'Phosphate', 'Bottom Substrate', 'Lab DateTime',
+                                              'Measurement Notes', 'CreationDate']].copy()
+            # rename
+            rep_envmeas_sub = rep_envmeas_sub.rename(columns={'GlobalID': 'envmeas_GlobalID',
+                                                              'ParentGlobalID': 'envmeas_ParentGlobalID',
+                                                              'Measurement DateTime': 'envmeas_date',
+                                                              'Measurement Depth': 'envmeas_depth',
+                                                              'Environmental Instrument': 'envmeas_instrument',
+                                                              'CTD Filename': 'ctd_filename',
+                                                              'CTD Notes': 'ctd_notes',
+                                                              'YSI Filename': 'ysi_filename',
+                                                              'YSI Model': 'ysi_model',
+                                                              'YSI Serial Number': 'ysi_serial_number',
+                                                              'YSI Notes': 'ysi_notes',
+                                                              'Secchi Depth': 'secchi_depth',
+                                                              'Secchi Notes': 'secchi_notes',
+                                                              'Niskin Number': 'niskin_number',
+                                                              'Niskin Notes': 'niskin_notes',
+                                                              'Other Instruments': 'other_instruments',
+                                                              'Environmental Measurements': 'env_measurements',
+                                                              'Flow Rate': 'flow_rate',
+                                                              'Water Temp': 'water_temp',
+                                                              'Salinity': 'salinity',
+                                                              'pH Scale': 'ph',
+                                                              'PAR1': 'par1',
+                                                              'PAR2': 'par2',
+                                                              'Turbidity': 'turbidity',
+                                                              'Conductivity': 'conductivity',
+                                                              'Dissolved Oxygen': 'do',
+                                                              'Pheophytin': 'pheophytin',
+                                                              'Chlorophyll a': 'chla',
+                                                              'Nitrate and Nitrite': 'no3no2',
+                                                              'Nitrite': 'no2',
+                                                              'Ammonium': 'nh4',
+                                                              'Phosphate': 'phosphate',
+                                                              'Bottom Substrate': 'bottom_substrate',
+                                                              'Lab DateTime': 'lab_date',
+                                                              'Measurement Notes': 'envmeas_notes',
+                                                              'CreationDate': 'envmeas_create_date'
+                                                              })
+
+            api_logger.info("[END] subset_envmeas_dataset")
+            return rep_envmeas_sub
+        except Exception as err:
+            raise RuntimeError("** Error: subset_envmeas_dataset Failed (" + str(err) + ")")
+
+    def subset_collection_dataset(self):
+        try:
+            api_logger.info("[START] subset_collection_data")
+            # read in CSVs as df
+            rep_collection_df = pd.read_csv(self.rep_collection)
+
             # subset
             rep_collection_sub = rep_collection_df[['GlobalID', 'ParentGlobalID', 'Collection Type',
                                                     'Water Collection DateTime', 'Water Vessel Label',
@@ -356,6 +428,102 @@ class DownloadCleanJoinData:
                                                                     'Core Label': 'core_label',
                                                                     'Core Notes': 'core_notes',
                                                                     'CreationDate': 'collection_create_date'})
+            api_logger.info("[END] subset_collection_dataset")
+            return rep_collection_sub
+        except Exception as err:
+            raise RuntimeError("** Error: subset_collection_data Failed (" + str(err) + ")")
+
+    def subset_filter_dataset(self):
+        try:
+            api_logger.info("[START] subset_filter_dataset")
+            # read in CSVs as df
+            rep_filter_df = pd.read_csv(self.rep_filter)
+            # subset
+            rep_filter_sub = rep_filter_df[['GlobalID', 'ParentGlobalID', 'Is Prefilter', 'Filter Sample Label',
+                                            'Filter Barcode', 'Filter DateTime', 'Filter Type', 'Filter Notes',
+                                            'CreationDate']].copy()
+            # rename
+            rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_GlobalID',
+                                                            'ParentGlobalID': 'filter_ParentGlobalID',
+                                                            'Is Prefilter': 'is_prefilter',
+                                                            'Filter Sample Label': 'filter_label',
+                                                            'Filter Barcode': 'filter_barcode',
+                                                            'Filter DateTime': 'filter_date',
+                                                            'Filter Type': 'filter_type',
+                                                            'Filter Notes': 'filter_notes',
+                                                            'CreationDate': 'filter_create_date'})
+            # change all filter_type to lower case
+            rep_filter_sub['filter_type'] = rep_filter_sub['filter_type'].str.lower()
+            # reformat date
+            rep_filter_sub['filter_date'] = pd.to_datetime(rep_filter_sub.filter_date)
+            # rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%m/%d/%Y')
+            rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+            api_logger.info("[END] subset_filter_dataset")
+
+            return rep_filter_sub
+        except Exception as err:
+            raise RuntimeError("** Error: subset_filter_dataset Failed (" + str(err) + ")")
+
+    def join_data(self):
+        """
+        Subset cleaned CSVs to desired headers, join, and export to CSV.
+        """
+        try:
+            api_logger.info("[START] join_data")
+
+            # subset datasets
+            survey_sub = self.subset_survey_dataset()
+            rep_envmeas_sub = self.subset_envmeas_dataset()
+            rep_collection_sub = self.subset_collection_dataset()
+            rep_filter_sub = self.subset_filter_dataset()
+
+            # join eDNA_Sampling_v13_sub to rep_envmeas
+            survey_envmeas_join = pd.merge(rep_envmeas_sub, survey_sub, how='left',
+                                           left_on='envmeas_ParentGlobalID', right_on='survey_GlobalID')
+
+            survey_envmeas_join_output = survey_envmeas_join.copy()
+            # subset
+            survey_envmeas_join_output = survey_envmeas_join_output[['survey_GlobalID', 'survey_date',
+                                                                     'survey_month', 'survey_year', 'projects',
+                                                                     'supervisor', 'username',
+                                                                     'recorder_first_name', 'recorder_last_name',
+                                                                     'system_type', 'site_id', 'other_site_id',
+                                                                     'general_location_name',
+                                                                     'envmeas_date', 'envmeas_depth',
+                                                                     'envmeas_instrument',
+                                                                     'ctd_filename', 'ctd_notes',
+                                                                     'ysi_filename', 'ysi_model',
+                                                                     'ysi_serial_number', 'ysi_notes',
+                                                                     'secchi_depth', 'secchi_notes',
+                                                                     'niskin_number', 'niskin_notes',
+                                                                     'other_instruments', 'env_measurements',
+                                                                     'flow_rate', 'water_temp', 'salinity',
+                                                                     'ph', 'par1', 'par2',
+                                                                     'turbidity', 'conductivity', 'do',
+                                                                     'pheophytin',
+                                                                     'chla', 'no3no2', 'no2',
+                                                                     'nh4', 'phosphate', 'bottom_substrate',
+                                                                     'lab_date',
+                                                                     'envmeas_notes',
+                                                                     'envmeas_GlobalID',
+                                                                     'survey_edit_date', 'survey_create_date',
+                                                                     'envmeas_create_date']].copy()
+            survey_envmeas_join_output['survey_date'] = pd.to_datetime(survey_envmeas_join_output.survey_date)
+            survey_envmeas_join_output = survey_envmeas_join_output.sort_values(by=['survey_date',
+                                                                                    'survey_GlobalID']).reset_index(drop=True)
+
+            # change all env_measurements to lower case
+            survey_envmeas_join_output['env_measurements'] = survey_envmeas_join_output['env_measurements'].str.lower()
+
+            # remove records without a specified env_measurements
+            survey_envmeas_join_output['env_measurements'].replace('', np.nan, inplace=True)
+            survey_envmeas_join_output.dropna(subset=['env_measurements'], how='all', inplace=True)
+
+            # write survey_envmeas_join to csv
+            api_logger.info("join_data: To CSV " + self.survey_envmeas_join_filename)
+            output_file = self.main_output_dir + self.survey_envmeas_join_filename + ".csv"
+            survey_envmeas_join_output.to_csv(output_file, encoding='utf-8')
+
             # join eDNA_Sampling_v13_sub to rep_collection
             survey_collection_join = pd.merge(rep_collection_sub, survey_sub, how='left',
                                               left_on='collection_ParentGlobalID', right_on='survey_GlobalID')
@@ -391,26 +559,6 @@ class DownloadCleanJoinData:
             api_logger.info("join_data: To CSV " + self.survey_collection_join_filename)
             output_file = self.main_output_dir + self.survey_collection_join_filename + ".csv"
             survey_collection_join_output.to_csv(output_file, encoding='utf-8')
-            # subset
-            rep_filter_sub = rep_filter_df[['GlobalID', 'ParentGlobalID', 'Is Prefilter', 'Filter Sample Label',
-                                            'Filter Barcode', 'Filter DateTime', 'Filter Type', 'Filter Notes',
-                                            'CreationDate']].copy()
-            # rename
-            rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_GlobalID',
-                                                            'ParentGlobalID': 'filter_ParentGlobalID',
-                                                            'Is Prefilter': 'is_prefilter',
-                                                            'Filter Sample Label': 'filter_label',
-                                                            'Filter Barcode': 'filter_barcode',
-                                                            'Filter DateTime': 'filter_date',
-                                                            'Filter Type': 'filter_type',
-                                                            'Filter Notes': 'filter_notes',
-                                                            'CreationDate': 'filter_create_date'})
-            # change all filter_type to lower case
-            rep_filter_sub['filter_type'] = rep_filter_sub['filter_type'].str.lower()
-            # reformat date
-            rep_filter_sub['filter_date'] = pd.to_datetime(rep_filter_sub.filter_date)
-            # rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%m/%d/%Y')
-            rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%Y-%m-%d %H:%M:%S.%f')
 
             # filter + sample + survey join
             ss_filter_join = pd.merge(rep_filter_sub, survey_collection_join, how='left',
@@ -449,6 +597,7 @@ class UploadData:
     :param gdrive_private_key: JSON API file from google drive API
     :param main_output_dir: Directory of joined data.
     :param survey_sub_filename: Filename for eDNA_Sampling_v14_0 subset CSV.
+    :param survey_envmeas_join_filename: Filename for eDNA_Sampling_v14_0 and rep_envmeas_2 joined CSV.
     :param survey_collection_join_filename: Filename for eDNA_Sampling_v14_0 and rep_collection_3 joined CSV.
     :param clean_filter_join_filename: Filepath for eDNA_Sampling_v14_0, rep_collection_3, and rep_filter_4 joined CSV.
     """
@@ -456,12 +605,14 @@ class UploadData:
                  target_spreadsheet_name=settings.GSHEETS_SPREADSHEET_NAME,
                  main_output_dir=settings.MAIN_OUTPUT_DIR,
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
+                 survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
                  clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME):
         self.gdrive_private_key = gdrive_private_key
         self.target_spreadsheet_name = target_spreadsheet_name
         self.main_output_dir = main_output_dir
         self.survey_sub_filename = survey_sub_filename
+        self.survey_envmeas_join_filename = survey_envmeas_join_filename
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
 
@@ -473,6 +624,7 @@ class UploadData:
             target_spreadsheet_name = self.target_spreadsheet_name
             main_output_dir = self.main_output_dir
             survey_sub_filename = self.survey_sub_filename
+            survey_envmeas_join_filename = self.survey_envmeas_join_filename
             survey_collection_join_filename = self.survey_collection_join_filename
             clean_filter_join_filename = self.clean_filter_join_filename
 
@@ -484,13 +636,14 @@ class UploadData:
 
             # filepath for joined CSVs to be uploaded
             survey_sub = main_output_dir + survey_sub_filename + ".csv"
+            survey_envmeas_join = main_output_dir + survey_envmeas_join_filename + ".csv"
             survey_collection_join = main_output_dir + survey_collection_join_filename + ".csv"
             clean_filter = main_output_dir + clean_filter_join_filename + ".csv"
 
             # name of target spreadsheet
             spreadsheet = client.open(target_spreadsheet_name)
             worksheet_list = spreadsheet.worksheets()
-            upload_list = [survey_sub, survey_collection_join, clean_filter]
+            upload_list = [survey_sub, survey_envmeas_join, survey_collection_join, clean_filter]
 
             # the filename of each CSV will be used to name each sheet within the target spreadsheet.
             for upload in upload_list:
