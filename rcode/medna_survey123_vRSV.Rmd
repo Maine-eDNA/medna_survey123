@@ -1,0 +1,308 @@
+---
+title: "MeDNA vRSV"
+output: html_notebook
+---
+
+
+# STEP 1 - Read in CSVs from Survey123
+
+This notebook:
+1. Loads Survey123 data
+2. Joins tables based on primary and foreign keys
+3. Generates "long" tables by melting repeats
+
+```{r, echo=FALSE, results="hide", messages=FALSE}
+# Load and Install Libraries
+source("medna_survey123.R")
+## Check libraries & install
+LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr")
+install_or_load_pack(LibraryList)
+overwrite = TRUE
+inputFolder = "data/01_Original/"
+outputFolder = "data/02_Working/ROutput/"
+
+outputPngFolder = paste0(outputFolder,"Figures/")
+
+todaysDateFn = format(Sys.Date(), "%Y%m%d")
+```
+
+# load in data
+```{r}
+#load data
+survey_data <- data.table::fread(paste0(inputFolder,'eDNA_Sampling_v13_0.csv'))
+#rep_crew <- data.table::fread(paste0(inputFolder,'rep_crew_1.csv'))
+#rep_envmeas <- data.table::fread(paste0(inputFolder,'rep_envmeas_2.csv'))
+#rep_collection <- data.table::fread(paste0(inputFolder,'rep_collection_3.csv'))
+#rep_prefilter <- data.table::fread(paste0(inputFolder,'rep_prefilter_4.csv'))
+#rep_filter <- data.table::fread(paste0(inputFolder,'rep_filter_5.csv'))
+```
+
+# check empty site_ids
+```{r}
+# How do you want to treat NA?
+# subset the data by the NAs, explore them & their origin
+# can we programmatically fix it, or do we have to do it manually?
+
+# 0 rows blank/NA Site IDs
+survey_empty<-survey_data[survey_data$`Site ID` == "" | is.na(survey_data$`Site ID`),]
+nrow(survey_empty)
+rm(survey_empty)
+```
+
+# subset data and add counts
+```{r}
+# displays column names & number of rows - 6589
+names(survey_data);nrow(survey_data)
+#names(rep_crew);nrow(rep_crew)
+#names(rep_envmeas);nrow(rep_envmeas)
+#names(rep_collection);nrow(rep_collection)
+#names(rep_prefilter);nrow(rep_prefilter)
+#names(rep_filter);nrow(rep_filter)
+# Head displays the first 6 rows of the data.table
+#head(survey_data);head(rep_crew);head(rep_envmeas);head(rep_collection);head(rep_prefilter);head(rep_filter)
+head(survey_data)
+
+survey_sub <- survey_data %>%
+  select(GlobalID, `Survey Date`, `Recorder First Name`, `Recorder Last Name`, `Site ID`, `Other Site ID`, `General Location Name`, `Affiliated Projects`) %>%
+  dplyr::mutate(`Survey Date` = as.Date(`Survey Date`, format = '%m/%d/%Y')) %>%
+  rename(survey_date = `Survey Date`) %>%
+  rename(recorder_first_name = `Recorder First Name`) %>%
+  rename(recorder_last_name = `Recorder Last Name`) %>%
+  rename(general_location_name = `General Location Name`) %>%
+  rename(survey_GlobalID = GlobalID) %>%
+  rename(site_id = `Site ID`) %>%
+  rename(other_site_id = `Other Site ID`) %>%
+  rename(affiliated_prjs = `Affiliated Projects`) %>%
+  dplyr::mutate(year = lubridate::year(survey_date), 
+                month = lubridate::month(survey_date), 
+                day = lubridate::day(survey_date),
+                yearmo = paste(year, str_pad(month,2, pad="0"), sep="-")) %>%
+  arrange(survey_date)
+
+survey_yrmo <- survey_sub %>%
+  dplyr::select(survey_date, yearmo) %>% 
+  dplyr::group_by(yearmo) %>%
+  dplyr::tally() %>%
+  dplyr::mutate(survey_date = paste(yearmo, "01",sep="-"),
+                survey_date = as.Date(survey_date, format = '%Y-%m-%d'),
+                ID = row_number())
+
+date_range <- seq(ymd(min(as.Date(survey_yrmo$survey_date))) %m+% months(-1), ymd(max(as.Date(survey_yrmo$survey_date))) %m+% months(2), by = 'month')
+dat_expanded <- expand.grid(date_range, survey_yrmo$ID)
+colnames(dat_expanded) <- c("survey_date", "ID")
+survey_exp <- merge(survey_yrmo, dat_expanded, by=c("ID", "survey_date"), all.y = T)
+
+survey_na <- survey_exp %>% 
+  group_by(survey_date) %>% 
+  arrange(n) %>% 
+  slice(1) %>%
+  dplyr::mutate(year = lubridate::year(survey_date), 
+                month = lubridate::month(survey_date), 
+                day = lubridate::day(survey_date),
+                yearmo = paste(year, str_pad(month,2, pad="0"), sep="-"),
+                ID = row_number()) %>%
+  mutate(n = ifelse(is.na(n), 0, n))
+
+survey_na$yearmo <- as.yearmon(survey_na$yearmo)
+
+survey_na$n[survey_na$yearmo == "Jun 2020"] <- 0
+
+survey_yrmo_2020 <- survey_na %>%
+  filter(survey_date > "2020-03-01" & survey_date <"2020-12-01") %>%
+  arrange()
+
+survey_yrmo_2021 <- survey_na %>%
+  filter(survey_date > "2020-09-01" & survey_date <"2021-06-01") %>%
+  arrange()
+
+
+survey_sub %>%
+  dplyr::select(yearmo) %>% 
+  dplyr::group_by(yearmo) %>%
+  dplyr::count(yearmo)
+
+survey_yrmo_2020
+survey_yrmo_2021
+
+```
+
+# bar plots samples by yr-mo
+```{r}
+# For space between POSIXlt bars you need adjust the width from the number of days in a month - width=30
+# https://stackoverflow.com/questions/12040245/how-to-increase-the-space-between-the-bars-in-a-bar-plot-in-ggplot2
+
+
+fileName="s123_collection_intensity_barplot_yrmo_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=2,width=14, units='in', res=300)
+ggplot(survey_yrmo_2020 %>%
+  filter(survey_date > "2020-04-01" & survey_date <"2020-11-01") %>%
+  arrange(), aes(x=survey_date, y=n)) +
+  xlab("") +
+  ylab("") +
+  #geom_area(color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  geom_bar(stat="identity", color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  #geom_point(color = "darkcyan") +
+  scale_x_date(date_labels = "%b %Y", breaks="months") +
+  geom_vline(xintercept=as.numeric(survey_yrmo_2020$survey_date[c(1,2,3,4,5,6,7)]), linetype=2, alpha=0.5) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.minor.y=element_blank(),
+        panel.grid.major.y=element_blank(),
+        panel.background = element_blank(),
+        legend.position="none")
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+fileName="s123_collection_intensity_barplot_yrmo_2021"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=2,width=14, units='in', res=300)
+ggplot(survey_yrmo_2021 %>%
+  filter(survey_date > "2020-10-01" & survey_date <"2021-05-01") %>%
+  arrange(), aes(x=survey_date, y=n)) +
+  xlab("") +
+  ylab("") +
+  #geom_area(color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  geom_bar(stat="identity", color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  #geom_point(color = "darkcyan") +
+  scale_x_date(date_labels = "%b %Y", breaks="months") +
+  geom_vline(xintercept=as.numeric(survey_yrmo_2021$survey_date[c(1,2,3,4,5,6,7)]), linetype=2, alpha=0.5) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.minor.y=element_blank(),
+        panel.grid.major.y=element_blank(),
+        panel.background = element_blank(),
+        legend.position="none")
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+```
+
+# line plots samples by yr-mo
+```{r}
+fileName="s123_collection_intensity_lineplot_yrmo_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=2,width=14, units='in', res=300)
+ggplot(survey_yrmo_2020 %>%
+  filter(survey_date > "2020-03-01" & survey_date <"2020-11-01") %>%
+  arrange(), aes(x=survey_date, y=n)) +
+  xlab("") +
+  ylab("") +
+  geom_area(color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  #geom_point(color = "darkcyan") +
+  scale_x_date(date_labels = "%b %Y", breaks="months") +
+  geom_vline(xintercept=as.numeric(survey_yrmo_2020$survey_date[c(1,2,3,4,5,6,7)]), linetype=2, alpha=0.5) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.minor.y=element_blank(),
+        panel.grid.major.y=element_blank(),
+        panel.background = element_blank())
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+fileName="s123_collection_intensity_lineplot_yrmo_2021"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=2,width=14, units='in', res=300)
+ggplot(survey_yrmo_2021 %>%
+  filter(survey_date > "2020-09-01" & survey_date <"2021-05-01") %>%
+  arrange(), aes(x=survey_date, y=n)) +
+  xlab("") +
+  ylab("") +
+  geom_area(color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  #geom_point(color = "darkcyan") +
+  scale_x_date(date_labels = "%b %Y", breaks="months") +
+  geom_vline(xintercept=as.numeric(survey_yrmo_2021$survey_date[c(1,2,3,4,5,6,7)]), linetype=2, alpha=0.5) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.minor.y=element_blank(),
+        panel.grid.major.y=element_blank(),
+        panel.background = element_blank())
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+```
+# subset data and add counts
+# samples by yr-mo & day
+```{r}
+
+survey_yrmoday <- survey_sub %>%
+  dplyr::select(survey_date) %>% 
+  dplyr::group_by(survey_date) %>%
+  dplyr::tally() %>%
+  dplyr::mutate(ID = row_number())
+
+date_range <- seq(ymd(min(as.Date(survey_yrmoday$survey_date))) %m+% months(-1), ymd(max(as.Date(survey_yrmoday$survey_date))) %m+% months(2), by = 'day')
+dat_expanded <- expand.grid(date_range, survey_yrmoday$ID)
+colnames(dat_expanded) <- c("survey_date", "ID")
+survey_exp <- merge(survey_yrmoday, dat_expanded, by=c("ID", "survey_date"), all.y = T)
+
+survey_na_day <- survey_exp %>% 
+  group_by(survey_date) %>% 
+  arrange(n) %>% 
+  slice(1) %>%
+  dplyr::mutate(year = lubridate::year(survey_date), 
+                month = lubridate::month(survey_date), 
+                day = lubridate::day(survey_date),
+                yearmo = paste(year, str_pad(month,2, pad="0"), sep="-"),
+                ID = row_number()) %>%
+  mutate(n = ifelse(is.na(n), 0, n))
+
+survey_na_day$yearmo <- as.yearmon(survey_na_day$yearmo)
+
+survey_na_day$n[survey_na_day$yearmo == "Jun 2020"] <- 0
+
+survey_yrmoday_2020 <- survey_na_day %>%
+  filter(survey_date > "2020-05-01" & survey_date <"2020-11-01") %>%
+  arrange()
+
+survey_yrmoday_2021 <- survey_na_day %>%
+  filter(survey_date > "2020-11-01" & survey_date <"2021-05-01") %>%
+  arrange()
+
+survey_yrmoday_2020
+survey_yrmoday_2021
+
+```
+
+# line plots by yr-mo & day
+```{r}
+fileName="s123_collection_intensity_lineplot_yrmoday_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=2,width=14, units='in', res=300)
+ggplot(survey_yrmoday_2020, aes(x=survey_date, y=n)) +
+  xlab("") +
+  ylab("") +
+  geom_area(color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  #geom_point(color = "darkcyan") +
+  scale_x_date(date_labels = "%b %Y", breaks="months") +
+  geom_vline(xintercept=as.numeric(survey_yrmo_2020$survey_date[c(1,2,3,4,5,6,7)]), linetype=2, alpha=0.5) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.minor.y=element_blank(),
+        panel.grid.major.y=element_blank(),
+        panel.background = element_blank())
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+fileName="s123_collection_intensity_lineplot_yrmoday_2021"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=2,width=14, units='in', res=300)
+ggplot(survey_yrmoday_2021, aes(x=survey_date, y=n)) +
+  xlab("") +
+  ylab("") +
+  geom_area(color = "darkcyan", fill="cyan4", alpha = 0.5) +
+  #geom_point(color = "darkcyan") +
+  scale_x_date(date_labels = "%b %Y", breaks="months") +
+  geom_vline(xintercept=as.numeric(survey_yrmo_2021$survey_date[c(1,2,3,4,5,6,7)]), linetype=2, alpha=0.5) +
+  theme(axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.grid.minor.y=element_blank(),
+        panel.grid.major.y=element_blank(),
+        panel.background = element_blank())
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+```

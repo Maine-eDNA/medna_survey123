@@ -1,0 +1,518 @@
+---
+title: "MeDNA Freezer to Survey123"
+output: html_notebook
+---
+
+# STEP 1 - Read in CSVs from Survey123
+
+This notebook:
+1. Loads freezer data (from CORE)
+3. Generates counts per site and filter type
+
+```{r, echo=FALSE, results="hide", messages=FALSE}
+# Load and Install Libraries
+source("edna_survey123.R")
+## Check libraries & install
+LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","openxlsx","scales")
+install_or_load_pack(LibraryList)
+overwrite = FALSE
+inputFolder = "G:/My Drive/eDNA/Data_Management_Team/Survey123/Freezer_CORE/"
+outputFolder = "G:/My Drive/eDNA/Data_Management_Team/Survey123/Freezer_CORE/"
+
+outputPngFolder = paste0(outputFolder,"Figures/")
+
+todaysDateFn = format(Sys.Date(), "%Y%m%d")
+```
+
+# load in data & format dates
+```{r}
+#using file chooser:
+#filename <- file.choose()
+# worksheet tabbed freezer data with annotations: "in_freezer","in_survey123","notes"
+freezer_data_fname = paste0(inputFolder,'freezer_to_barcode_survey123_20210311.xlsx')
+# survey123 records and "in_freezer" column to indicate whether it is in freezer
+survey123_filters_fname = paste0(inputFolder,'survey123_in_freezer_all_20210311.xlsx')
+
+
+#get all the sheet names from the workbook
+sheet_names<-getSheetNames(freezer_data_fname)
+#read in first sheet
+#?openxlsx::read.xlsx
+freezer_all_2019 <- openxlsx::read.xlsx(freezer_data_fname, sheet_names[1], detectDates=TRUE)
+
+#remove 2019_freezer, 'unique site names', and lku_pid from sheets 
+sheet_names_sub<-sheet_names[-c(1,8,9)]
+
+# add each df into list
+freezer_all_2020_list <- lapply(sheet_names_sub, function(X) openxlsx::read.xlsx(freezer_data_fname, sheet = X, detectDates = TRUE))
+# rbind list of dfs into one df
+freezer_all_2020 <- do.call("rbind", freezer_all_2020_list)
+
+
+#get all the sheet names from the workbook
+sheet_names<-getSheetNames(survey123_filters_fname)
+
+#load first sheet, filters
+survey123_filters<- openxlsx::read.xlsx(survey123_filters_fname, sheet_names[1], detectDates = TRUE)
+#load second sheet, prefilters
+survey123_prefilters<- openxlsx::read.xlsx(survey123_filters_fname, sheet_names[2], detectDates = TRUE)
+
+#names(freezer_all_2019)
+date_cols <- c("potential_collectdate", "freezer_collectdate","freezer_filterdate","s123_surveydate","s123_filterdate")
+setDT(freezer_all_2019)[, (date_cols) := lapply(.SD, lubridate::ymd), .SDcols = date_cols]
+setDT(freezer_all_2020)[, (date_cols) := lapply(.SD, lubridate::ymd), .SDcols = date_cols]
+
+date_cols <- c("survey_date", "filter_date")
+setDT(survey123_filters)[, (date_cols) := lapply(.SD, lubridate::ymd), .SDcols = date_cols]
+date_cols <- c("survey_date", "prefilter_date")
+setDT(survey123_prefilters)[, (date_cols) := lapply(.SD, lubridate::ymd), .SDcols = date_cols]
+
+```
+
+# head all data
+```{r}
+head(freezer_all);head(survey123_all);head(freezer_all_2019);head(freezer_all_2020);head(survey123_filters);head(survey123_prefilters)
+
+```
+# Add year and full sid
+```{r}
+#names(survey123_filters)
+
+# concatenate sid and name and add year col
+survey123_filters<- survey123_filters %>%
+  dplyr::mutate(full_sid = paste0(site_id,": ",general_location_name),
+                year = lubridate::year(survey_date))
+# concatenate sid and name and add year col
+survey123_prefilters<- survey123_prefilters %>%
+  dplyr::mutate(full_sid = paste0(site_id,": ",general_location_name),
+                year = lubridate::year(survey_date))  
+
+survey123_prefilters$filter_prefilter <- "prefilter"
+survey123_filters$filter_prefilter <- "filter"
+survey123_all <- rbind(survey123_prefilters,survey123_filters, fill=TRUE)
+
+freezer_all <- rbind(freezer_all_2019,freezer_all_2020)
+# add year col
+freezer_all<- freezer_all %>%
+    dplyr::mutate(year = lubridate::year(potential_collectdate)) 
+```
+
+# All years Survey123 summary
+```{r, fig.width = 6, fig.height = 4}
+fileName="s123_in_freezer_count"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(survey123_all %>%
+         dplyr::select(in_freezer,full_sid,year) %>% 
+         dplyr::count(in_freezer) %>%
+         dplyr::mutate(pct=n/sum(n)) %>%     
+         dplyr::arrange(in_freezer),              # Calculate percent within each region
+       aes("", n, fill=in_freezer)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + # remove background, grid, numeric labels 
+  xlab("In Freezer") +
+  ggtitle("Count of Survey123 records in freezer") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="In Freezer")) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="s123_in_freezer_count_year"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(survey123_all %>%
+         dplyr::select(in_freezer,year) %>% 
+         dplyr::count(in_freezer,year) %>%
+         dplyr::group_by(year) %>%
+         dplyr::mutate(year,pct=n/sum(n)) %>%     
+         dplyr::arrange(in_freezer),              # Calculate percent within each region
+       aes(year, n, fill=in_freezer)) +
+  geom_bar(stat="identity") +
+  xlab("year") +
+  ggtitle("Count of Survey123 records in freezer by year") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="In Freezer")) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="s123_in_freezer_count_pff"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(survey123_all %>%
+         dplyr::select(in_freezer,filter_prefilter) %>% 
+         dplyr::count(in_freezer,filter_prefilter) %>%
+         dplyr::group_by(filter_prefilter) %>%
+         dplyr::mutate(filter_prefilter,pct=n/sum(n)) %>%     
+         dplyr::arrange(in_freezer),              # Calculate percent within each region
+       aes(filter_prefilter, n, fill=in_freezer)) +
+  geom_bar(stat="identity") +
+  xlab("type") +
+  ggtitle("Count of Survey123 records in freezer by type") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="In Freezer")) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+```
+# All years freezer summary
+```{r, fig.width = 6, fig.height = 4}
+fileName="freezer_with_s123_count"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(freezer_all %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(in_s123) %>% 
+         dplyr::count(in_s123) %>%
+         dplyr::mutate(pct=n/sum(n)) %>%     
+         dplyr::arrange(in_s123),              # Calculate percent within each region
+       aes("", n, fill=in_s123)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + # remove background, grid, numeric labels 
+  ggtitle("Count in freezer with Survey123 entries") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="freezer_with_s123_count_year"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(freezer_all %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(in_s123,year) %>% 
+         dplyr::count(in_s123,year) %>%
+         dplyr::group_by(year) %>%
+         dplyr::mutate(year,pct=n/sum(n)) %>%     
+         dplyr::arrange(in_s123),              # Calculate percent within each region
+       aes(year, n, fill=in_s123)) +
+  geom_bar(stat="identity") +
+  xlab("year") +
+  ggtitle("Count in freezer with Survey123 entries by year") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="In Survey123")) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  scale_x_continuous(breaks=c(2019,2020,2021)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+```
+# 2019 Summary
+## 2019 distinct count in freezer for filters and prefilters
+```{r, fig.width = 6, fig.height = 4}
+fileName="freezer_count_pff_2019"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(freezer_all_2019 %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(filter_prefilter) %>% 
+         dplyr::count(filter_prefilter) %>%
+         dplyr::mutate(pct=n/sum(n)) %>%     
+         dplyr::arrange(filter_prefilter),              # Calculate percent within each region
+       aes("", n, fill=filter_prefilter)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + # remove background, grid, numeric labels 
+  xlab("type") +
+  ggtitle("Count in freezer (2019)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="type")) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="freezer_with_s123_count_2019"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(freezer_all_2019 %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(in_s123,filter_prefilter) %>% 
+         dplyr::count(in_s123,filter_prefilter) %>%
+         dplyr::mutate(pct=n/sum(n)) %>%     
+         dplyr::arrange(in_s123),              # Calculate percent within each region
+       aes(filter_prefilter, n, fill=in_s123)) +
+  geom_bar(stat="identity") +
+  xlab("type") +
+  ggtitle("Count in freezer with Survey123 entries (2019)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+```
+
+## 2019 distinct count in freezer for filters not in Survey123
+```{r, fig.width = 12, fig.height = 6}
+fileName="freezer_count_pff_site_2019"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=6,width=12, units='in', res=300)
+ggplot(freezer_all_2019 %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(filter_prefilter,potential_fullsid) %>% 
+         dplyr::count(filter_prefilter,potential_fullsid) %>%
+         dplyr::group_by(potential_fullsid) %>%
+         dplyr::mutate(potential_fullsid,pct=n/sum(n)) %>%     
+         dplyr::arrange(filter_prefilter),              # Calculate percent within each region
+       aes(potential_fullsid, n, fill=filter_prefilter)) +
+  geom_bar(stat="identity") +
+  xlab("site") +
+  ggtitle("Count in freezer by site (2019)") +
+  guides(fill=guide_legend(title="type")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="freezer_with_s123_count_prefilter_site_2019"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=6,width=12, units='in', res=300)
+ggplot(freezer_all_2019 %>%
+         dplyr::filter(in_freezer=="Y" & filter_prefilter=="prefilter") %>%
+         dplyr::select(in_s123,potential_fullsid) %>% 
+         dplyr::count(in_s123,potential_fullsid) %>%
+         dplyr::group_by(potential_fullsid) %>%
+         dplyr::mutate(potential_fullsid, pct=n/sum(n)) %>%     
+         dplyr::arrange(potential_fullsid),              # Calculate percent within each region
+       aes(potential_fullsid, n, fill=in_s123)) +
+  geom_bar(stat="identity") +
+  xlab("In Survey123") +
+  ggtitle("Prefilters in freezer with Survey123 entries by site (2019)") +
+  #guides(fill=guide_legend(title="In Survey123")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="freezer_with_s123_count_filter_site_2019"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=6,width=12, units='in', res=300)
+ggplot(freezer_all_2019 %>%
+         dplyr::filter(in_freezer=="Y" & filter_prefilter=="filter") %>%
+         dplyr::select(in_s123,potential_fullsid) %>% 
+         dplyr::count(in_s123,potential_fullsid) %>%
+         dplyr::group_by(potential_fullsid) %>%
+         dplyr::mutate(potential_fullsid, pct=n/sum(n)) %>%     
+         dplyr::arrange(potential_fullsid),              # Calculate percent within each region
+       aes(potential_fullsid, n, fill=in_s123)) +
+  geom_bar(stat="identity") +
+  xlab("site") +
+  ggtitle("Filters in freezer with Survey123 entries by site (2019)") +
+  #guides(fill=guide_legend(title="In Survey123")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," \n(",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+
+```
+
+## 2019 count that need barcodes
+```{r}
+site_by_ft_2019_df<- freezer_all_2019 %>%
+  dplyr::select(potential_siteid,potential_filtertype ) %>% 
+  dplyr::count(potential_siteid,potential_filtertype ) %>%
+  dplyr::arrange(potential_filtertype,potential_siteid)
+
+# write summary count to csv
+outputFileName = "2019_freezer_barcode_count_site_filtertype"
+outputFile = paste0(outputFolder,outputFileName,"_",todaysDateFn,".csv")
+
+if (!file.exists(outputFile) | overwrite) {
+  write.csv(site_by_ft_2019_df, outputFile, row.names=FALSE)
+}
+
+site_by_ft_2019_df
+```
+
+# 2020 Summary
+## 2020 distinct count in freezer for filters and prefilters
+```{r, fig.width = 6, fig.height = 4}
+fileName="freezer_count_pff_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(freezer_all_2020 %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(filter_prefilter) %>% 
+         dplyr::count(filter_prefilter) %>%
+         dplyr::mutate(pct=n/sum(n)) %>%     
+         dplyr::arrange(filter_prefilter),              # Calculate percent within each region
+       aes("", n, fill=filter_prefilter)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() + # remove background, grid, numeric labels 
+  xlab("type") +
+  ggtitle("Count in freezer (2020)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="type")) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="freezer_with_s123_count_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(freezer_all_2020 %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(in_s123,filter_prefilter) %>% 
+         dplyr::count(in_s123,filter_prefilter) %>%
+         dplyr::mutate(pct=n/sum(n)) %>%     
+         dplyr::arrange(in_s123),              # Calculate percent within each region
+       aes(filter_prefilter, n, fill=in_s123)) +
+  geom_bar(stat="identity") +
+  xlab("type") +
+  ggtitle("Count in freezer with Survey123 entries (2020)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+```
+
+## 2020 distinct count in freezer for filters not in Survey123
+```{r, fig.width = 12, fig.height = 6}
+fileName="freezer_count_pff_site_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=6,width=36, units='in', res=300)
+ggplot(freezer_all_2020 %>%
+         dplyr::filter(in_freezer=="Y") %>%
+         dplyr::select(filter_prefilter,potential_fullsid) %>% 
+         dplyr::count(filter_prefilter,potential_fullsid) %>%
+         dplyr::group_by(potential_fullsid) %>%
+         dplyr::mutate(potential_fullsid,pct=n/sum(n)) %>%     
+         dplyr::arrange(filter_prefilter),              # Calculate percent within each region
+       aes(potential_fullsid, n, fill=filter_prefilter)) +
+  geom_bar(stat="identity") +
+  xlab("site") +
+  ggtitle("Count in freezer by site (2020)") +
+  guides(fill=guide_legend(title="type")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+fileName="freezer_with_s123_count_prefilter_site_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=6,width=36, units='in', res=300)
+ggplot(freezer_all_2020 %>%
+         dplyr::filter(in_freezer=="Y" & filter_prefilter=="prefilter") %>%
+         dplyr::select(in_s123,potential_fullsid) %>% 
+         dplyr::count(in_s123,potential_fullsid) %>%
+         dplyr::group_by(potential_fullsid) %>%
+         dplyr::mutate(potential_fullsid, pct=n/sum(n)) %>%     
+         dplyr::arrange(potential_fullsid),              # Calculate percent within each region
+       aes(potential_fullsid, n, fill=in_s123)) +
+  geom_bar(stat="identity") +
+  xlab("In Survey123") +
+  ggtitle("Prefilters in freezer with Survey123 entries by site (2020)") +
+  #guides(fill=guide_legend(title="In Survey123")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+
+#freezer_all_2020 <- freezer_all_2020 %>% 
+#  group_by(potential_siteid) %>%
+#  arrange(potential_siteid) %>%
+#  mutate(plot_split=ceiling(n()/2)) %>%
+#  ungroup()
+
+fileName="freezer_with_s123_count_filter_site_2020"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=6,width=36, units='in', res=300)
+ggplot(freezer_all_2020 %>%
+         dplyr::filter(in_freezer=="Y" & filter_prefilter=="filter") %>%
+         dplyr::select(in_s123,potential_fullsid) %>% 
+         dplyr::count(in_s123,potential_fullsid) %>%
+         dplyr::group_by(potential_fullsid) %>%
+         dplyr::mutate(potential_fullsid, pct=n/sum(n)) %>%     
+         dplyr::arrange(potential_fullsid),              # Calculate percent within each region
+       aes(potential_fullsid, n, fill=in_s123)) +
+  geom_bar(stat="identity") +
+  xlab("site") +
+  ggtitle("Filters in freezer with Survey123 entries by site (2020)") +
+  #guides(fill=guide_legend(title="In Survey123")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  #coord_flip() +
+  #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  scale_x_discrete(labels = function(potential_fullsid) str_wrap(potential_fullsid, width = 10)) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5)) 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+
+
+```
+
+## 2020 count that need barcodes
+```{r}
+site_by_ft_2020_df<- freezer_all_2020 %>%
+  dplyr::select(potential_siteid,potential_filtertype ) %>% 
+  dplyr::count(potential_siteid,potential_filtertype ) %>%
+  dplyr::arrange(potential_filtertype,potential_siteid)
+
+# write summary count to csv
+outputFileName = "2020_freezer_barcode_count_site_filtertype"
+outputFile = paste0(outputFolder,outputFileName,"_",todaysDateFn,".csv")
+
+if (!file.exists(outputFile) | overwrite) {
+  write.csv(site_by_ft_2020_df, outputFile, row.names=FALSE)
+}
+
+site_by_ft_2020_df
+```

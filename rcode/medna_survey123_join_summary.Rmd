@@ -1,0 +1,147 @@
+---
+title: "MeDNA Survey123 Summary"
+output: html_notebook
+---
+
+# STEP 1 - Read in CSVs from Survey123
+
+This notebook:
+1. Loads Survey123 data
+2. Joins tables based on primary and foreign keys
+3. Generates "long" tables by melting repeats
+
+
+```{r, echo=FALSE, results="hide", messages=FALSE}
+# Load and Install Libraries
+source("medna_survey123.R")
+## Check libraries & install
+LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr")
+install_or_load_pack(LibraryList)
+overwrite = TRUE
+inputFolder = "../data/02_Working/PyOutput/"
+outputFolder = "../data/02_Working/ROutput/"
+
+outputPngFolder = paste0(outputFolder,"Figures/")
+
+todaysDateFn = format(Sys.Date(), "%Y%m%d")
+```
+
+# load in data
+```{r}
+#load data
+survey_sub <- data.table::fread(paste0(inputFolder,'eDNA_Sampling_v14_sub.csv'))
+survey_envmeas_join <- data.table::fread(paste0(inputFolder,'survey_envmeas_join.csv'))
+survey_collection_join <- data.table::fread(paste0(inputFolder,'survey_collection_join.csv'))
+clean_filter_join <- data.table::fread(paste0(inputFolder,'clean_filter_join.csv'))
+```
+# review data
+```{r}
+# displays column names & number of rows - 6589
+names(survey_sub);nrow(survey_sub)
+names(survey_envmeas_join);nrow(survey_envmeas_join)
+names(survey_collection_join);nrow(survey_collection_join)
+names(clean_filter_join);nrow(clean_filter_join)
+# Head displays the first 6 rows of the data.table
+#head(survey_sub);head(survey_envmeas_join);head(survey_collection_join);head(clean_filter_join);head(clean_filter_join)
+```
+
+# check empty site_ids
+```{r}
+# How do you want to treat NA?
+# subset the data by the NAs, explore them & their origin
+# can we programmatically fix it, or do we have to do it manually?
+
+# 0 rows blank/NA Site IDs
+survey_empty<-survey_sub[survey_sub$site_id == "" | is.na(survey_sub$site_id),]
+nrow(survey_empty)
+rm(survey_empty)
+```
+
+
+"survey_GlobalID"       "survey_date"           "survey_month"         
+"survey_year"           "projects"              "supervisor"            "username"             
+"recorder_first_name"   "recorder_last_name"    "system_type"           "site_id"              
+"other_site_id"         "general_location_name" "envmeas_date"          "envmeas_depth"        
+"envmeas_instrument"    "ctd_filename"          "ctd_notes"             "ysi_filename"         
+"ysi_model"             "ysi_serial_number"     "ysi_notes"             "secchi_depth"         
+"secchi_notes"          "niskin_number"         "niskin_notes"          "other_instruments"    
+"env_measurements"      "flow_rate"             "water_temp"            "salinity"             
+"ph"                    "par1"                  "par2"                  "turbidity"            
+"conductivity"          "do"                    "pheophytin"            "chla"                 
+"no3no2"                "no2"                   "nh4"                   "phosphate"            
+"bottom_substrate"      "lab_date"              "envmeas_notes"         "envmeas_GlobalID"     
+"survey_edit_date"      "survey_create_date"    "envmeas_create_date"  
+
+```{r}
+
+unique_survey_gids <- unique(survey_sub$survey_GlobalID)
+unique_envmeas_survey_gids <- unique(survey_envmeas_join$survey_GlobalID) 
+
+perc_gids<-(length(unique_envmeas_survey_gids)/length(unique_survey_gids))*100
+print(paste0("Percentage of survey records with environmental measurements: ",round(perc_gids,2),"%"))
+
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
+
+perc_sids<-(length(unique_envmeas_sids)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with environmental measurements: ",round(perc_sids,2),"%"))
+
+
+nrow(survey_envmeas_join)
+survey_envmeas_join %>%
+         dplyr::select(envmeas_GlobalID, site_id) %>% 
+         dplyr::group_by(site_id) %>%
+         dplyr::count(site_id) %>%
+         dplyr::mutate(pct=n/sum(n))
+
+ggplot(survey_envmeas_join %>%
+         dplyr::select(envmeas_GlobalID, site_id) %>% 
+         dplyr::group_by(site_id) %>%
+         dplyr::count(envmeas_GlobalID) %>%
+         dplyr::mutate(pct=n/sum(n)),              # Calculate percent within each region
+       aes(site_id, n, fill=site_id)) +
+  geom_bar(stat="identity") +
+  xlab("type") +
+  ggtitle("Count of Survey123 records in freezer by type") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=45, hjust=1)) +
+  theme(legend.position = "none") +
+  guides(fill=guide_legend(title="In Freezer"))
+```
+
+
+# unique survey records & missing env measurements
+```{r}
+fileName="s123_in_freezer_count_pff"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=6, units='in', res=300)
+ggplot(survey123_all %>%
+         dplyr::select(in_freezer,filter_prefilter) %>% 
+         dplyr::count(in_freezer,filter_prefilter) %>%
+         dplyr::group_by(filter_prefilter) %>%
+         dplyr::mutate(filter_prefilter,pct=n/sum(n)) %>%     
+         dplyr::arrange(in_freezer),              # Calculate percent within each region
+       aes(filter_prefilter, n, fill=in_freezer)) +
+  geom_bar(stat="identity") +
+  xlab("type") +
+  ggtitle("Count of Survey123 records in freezer by type") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="In Freezer")) +
+  scale_fill_manual("In Survey123", values = c("?" = "#CC79A7", "Y" = "#009E73", "N" = "#FF6666")) +
+  geom_text(aes(label=paste0(sprintf("%1.1f", pct*100),"%"," (",n,")")), 
+            position=position_stack(vjust=0.5))
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+
+```
+
+```{r}
+# write full join (no clean) to file
+outputFileName = "preclean_prefilter_filter_join"
+outputFile = paste0(outputFolder,outputFileName,".csv")
+
+if (!file.exists(outputFile) | overwrite) {
+  write.csv(preclean_prefilter_filter_join, outputFile, row.names=FALSE)
+}
+```

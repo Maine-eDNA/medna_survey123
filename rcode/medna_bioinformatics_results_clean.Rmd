@@ -1,0 +1,95 @@
+---
+title: "eDNA Combined Taxa Table"
+output: html_notebook
+---
+
+
+# STEP 1 - Read in CSV bioinformatics results
+
+This notebook:
+1. Loads combined_tax_table_clean
+2. Melt table
+3. Generates "long" tables by melting repeats
+
+```{r, echo=FALSE, results="hide", messages=FALSE}
+# Load and Install Libraries
+source("edna_survey123.R")
+## Check libraries & install
+LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr", "reshape2")
+install_or_load_pack(LibraryList)
+overwrite = TRUE
+inputFolder = "data/01_Original/"
+outputFolder = "data/02_Working/ROutput/"
+
+outputPngFolder = paste0(outputFolder,"Figures/")
+
+todaysDateFn = format(Sys.Date(), "%Y%m%d")
+```
+
+# load in data
+```{r}
+#load data
+tax_table <- data.table::fread(paste0(inputFolder,'combined_tax_table_clean.csv'))
+
+names(tax_table)
+
+```
+
+
+# melt the data
+```{r}
+# melt data
+tax_table_melt <- melt(tax_table, id.vars=c("ASV_ID", "Taxon", "Confidence", "Sequence"), 
+                       variable.name = "sample_id", value.name = "num_reads")
+
+```
+
+# unique ASVs
+```{r}
+# unique asvs data
+unique_asvID<-unique(tax_table_melt$ASV_ID)
+
+```
+
+# AmpliconSequenceVariants Table
+```{r}
+# asv data
+asv_df <- tax_table[,c("ASV_ID", "Sequence")] 
+
+```
+
+# Taxonomic Information Table
+```{r}
+# melt data
+tax_info_df <- tax_table[,c("ASV_ID", "Confidence", "Taxon")] 
+
+```
+
+# write to csv
+```{r}
+# write melt to csv
+outputFileName = "combined_tax_table_clean_melt"
+outputFile = paste0(outputFolder,outputFileName,".csv")
+
+if (!file.exists(outputFile) | overwrite) {
+  write.csv(tax_table_melt, outputFile, row.names=FALSE)
+}
+
+# write ASV table to csv
+outputFileName = "asv_table"
+outputFile = paste0(outputFolder,outputFileName,".csv")
+
+if (!file.exists(outputFile) | overwrite) {
+  write.csv(asv_df, outputFile, row.names=FALSE)
+}
+
+# write ASV table to csv
+outputFileName = "taxon_information_table"
+outputFile = paste0(outputFolder,outputFileName,".csv")
+
+if (!file.exists(outputFile) | overwrite) {
+  write.csv(tax_info_df, outputFile, row.names=FALSE)
+}
+
+
+```
