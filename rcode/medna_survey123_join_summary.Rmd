@@ -37,6 +37,7 @@ survey_envmeas_join <- data.table::fread(paste0(inputFolder,'survey_envmeas_join
 survey_collection_join <- data.table::fread(paste0(inputFolder,'survey_collection_join.csv'))
 clean_filter_join <- data.table::fread(paste0(inputFolder,'clean_filter_join.csv'))
 ```
+
 # review data
 ```{r}
 # displays column names & number of rows - 6589
@@ -98,10 +99,13 @@ survey_envmeas_join_siteids <- survey_envmeas_join %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_envmeas_siteids_table.png"))
-png(outputPNGFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
 grid.table(survey_envmeas_join_siteids, theme=tt3)
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
 
 ```
 
@@ -119,8 +123,8 @@ survey_envmeas_join_count <- survey_envmeas_join %>%
 plotTitle = "Count of environmental measurements by site"
 
 # save plot in png format
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_envmeas_count_site.png"))
-png(outputPNGFileName,height=3,width=6, units='in', res=150)
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_count_site.png"))
+png(outputPngFileName,height=3,width=6, units='in', res=150)
 
 ggplot(survey_envmeas_join_count,
        aes(site_id, n, fill=site_id)) +
@@ -131,14 +135,16 @@ ggplot(survey_envmeas_join_count,
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(axis.text.x = element_text(angle=50, hjust=1)) +
   theme(legend.position = "none") 
-print(paste("Plot saved as:",outputPNGFileName))
+print(paste("Plot saved as:",outputPngFileName))
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
 
 plotTitle = "Percent of environmental measurements by site"
 
 # save plot in png format
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_envmeas_perc_site.png"))
-png(outputPNGFileName,height=3,width=6, units='in', res=150)
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_perc_site.png"))
+png(outputPngFileName,height=3,width=6, units='in', res=150)
 
 ggplot(survey_envmeas_join_count, 
        aes(site_id, perc, fill=site_id)) +
@@ -151,8 +157,10 @@ ggplot(survey_envmeas_join_count,
   theme(axis.text.x = element_text(angle=50, hjust=1)) +
   theme(legend.position = "none") 
 
-print(paste("Plot saved as:",outputPNGFileName))
+print(paste("Plot saved as:",outputPngFileName))
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
 ```
 
 
@@ -181,10 +189,13 @@ survey_envmeas_join_siteids <- survey_envmeas_join %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_envmeas_salinity_siteids_table.png"))
-png(outputPNGFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_salinity_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
 grid.table(survey_envmeas_join_siteids, theme=tt3)
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
 
 ```
 
@@ -243,6 +254,7 @@ ggplot(survey_envmeas_join  %>%
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
+knitr::include_graphics(outputPngFileName)
 
 plotTitle = "Salinity by Site"
 fileName="s123_envmeas_salinity_site"
@@ -260,6 +272,8 @@ ggplot(survey_envmeas_join %>%
   theme(legend.position = "none") 
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
 
 ```
 
@@ -289,10 +303,13 @@ survey_envmeas_join_siteids <- survey_envmeas_join %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_envmeas_temp_siteids_table.png"))
-png(outputPNGFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_temp_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
 grid.table(survey_envmeas_join_siteids, theme=tt3)
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
 
 ```
 
@@ -353,6 +370,7 @@ ggplot(survey_envmeas_join %>%
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
+knitr::include_graphics(outputPngFileName)
 
 plotTitle = "Temperature by Site"
 fileName="s123_envmeas_temp_site"
@@ -370,6 +388,8 @@ ggplot(survey_envmeas_join %>%
   theme(legend.position = "none") 
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
 
 
 ```
@@ -399,10 +419,13 @@ survey_envmeas_join_siteids <- survey_envmeas_join %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_envmeas_depth_siteids_table.png"))
-png(outputPNGFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_depth_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
 grid.table(survey_envmeas_join_siteids, theme=tt3)
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
 
 ```
 
@@ -461,6 +484,7 @@ ggplot(survey_envmeas_join %>%
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
+knitr::include_graphics(outputPngFileName)
 
 plotTitle = "Depth by Site"
 fileName="s123_envmeas_depth_site"
@@ -478,6 +502,8 @@ ggplot(survey_envmeas_join %>%
   theme(legend.position = "none") 
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
 
 ```
 
@@ -507,10 +533,13 @@ survey_collection_join_siteids <- survey_collection_join %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_collect_water_depth_siteids_table.png"))
-png(outputPNGFileName, height=25*nrow(survey_collection_join_siteids), width=500*ncol(survey_collection_join_siteids))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_water_depth_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_collection_join_siteids), width=500*ncol(survey_collection_join_siteids))
 grid.table(survey_collection_join_siteids, theme=tt3)
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_collection_join_siteids
 
 ```
 
@@ -570,6 +599,7 @@ ggplot(survey_collection_join %>%
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
+knitr::include_graphics(outputPngFileName)
 
 plotTitle = "Water collection depth by Site"
 fileName="s123_water_collect_depth_site"
@@ -587,6 +617,8 @@ ggplot(survey_collection_join %>%
   theme(legend.position = "none") 
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
 
 ```
 
@@ -615,10 +647,13 @@ survey_collection_join_siteids <- survey_collection_join %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPNGFileName <- file.path(outputPngFolder,paste0("s123_collect_sediment_depth_siteids_table.png"))
-png(outputPNGFileName, height=25*nrow(survey_collection_join_siteids), width=500*ncol(survey_collection_join_siteids))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_sediment_depth_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_collection_join_siteids), width=500*ncol(survey_collection_join_siteids))
 grid.table(survey_collection_join_siteids, theme=tt3)
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_collection_join_siteids
 
 ```
 
@@ -679,6 +714,8 @@ ggplot(survey_collection_join %>%
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
+knitr::include_graphics(outputPngFileName)
+
 
 plotTitle = "Sediment collection depth by Site"
 fileName="s123_sediment_collect_depth_site"
@@ -696,6 +733,8 @@ ggplot(survey_collection_join %>%
   theme(legend.position = "none") 
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
+
+knitr::include_graphics(outputPngFileName)
 
 ```
 
