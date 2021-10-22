@@ -3,22 +3,39 @@ title: "MeDNA Survey123 Summary"
 output: html_notebook
 ---
 
-# STEP 1 - Read in CSVs from Survey123
+Prepared by: Melissa Kimble
+
+
 
 This notebook:
 1. Loads Survey123 data
 2. Joins tables based on primary and foreign keys
 3. Generates "long" tables by melting repeats
 
+* add in all YSI sonde measurements
+* eg par1, par2, turbidity, do, conductivity, water temp
+* add map versions of each of these
 
+* geom_sf
+* bubble plots with siteid
+* Jun, Jul, Aug (Summer)
+* Sep, Oct, Nov (Fall)
+* Dec, Jan, Feb (Winter)
+* Mar, Apr, May (Spring)
+* samples per year, samples per month, samples per season
+* add map of regions
+* (count of survey records, count of filters, count of cores, count of environmental measurements), barcharts grouped or stacked by year per site
+
+# LOAD PROJECT VARIABLES
 ```{r, echo=FALSE, results="hide", messages=FALSE}
 # Load and Install Libraries
 source("medna_survey123.R")
 ## Check libraries & install
-LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr", "gridExtra")
+LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr", "gridExtra", "sf")
 install_or_load_pack(LibraryList)
 overwrite = TRUE
 inputFolder = "../data/02_Working/PyOutput/"
+originalFolder = "../data/01_Original/"
 outputFolder = "../data/02_Working/ROutput/"
 
 outputPngFolder = "../figures/rcode/"
@@ -29,38 +46,114 @@ tt3 <- ttheme_default(core=list(fg_params=list(hjust=0, x=0.1)),
                       rowhead=list(fg_params=list(hjust=0, x=0)))
 ```
 
-# load in data
+# LOAD SHAPFILES
+
+```{r}
+InputShpFolder = "G:/My Drive/Dissertation/01_Data"
+
+WBDHU8SHP = paste0(InputShpFolder,"/02_Working/Hydrography/USGS_NHD/20200615/WBDHU8_MENH_NEaq/WBDHU8_MENH_NEA.shp")
+WBD_spdf<-sf::st_read(WBDHU8SHP)
+#names(WBD_spdf)
+UScensusSHP = paste0(InputShpFolder,"/01_Original/Census/2021/tl_2021_us_state/tl_2021_us_state.shp")
+US_census_spdf<-sf::st_read(UScensusSHP)
+#names(US_coast_spdf)
+
+#UScensusSHP = paste0(InputShpFolder,"/01_Original/Census/2021/tl_2021_us_state/tl_2021_us_state.shp")
+#US_census_spdf<-sf::st_read(UScensusSHP)
+#names(US_coast_spdf)
+
+lakesSHP = paste0(InputShpFolder,"/01_Original/NaturalEarth/ne_10m_lakes_north_america/ne_10m_lakes_north_america.shp")
+lakes_spdf<-sf::st_read(lakesSHP)
+#names(lakes_spdf)
+
+riversSHP = paste0(InputShpFolder,"/01_Original/NaturalEarth/ne_10m_rivers_north_america/ne_10m_rivers_north_america.shp")
+rivers_spdf<-sf::st_read(riversSHP)
+#names(lakes_spdf)
+
+countriesSHP = paste0(InputShpFolder,"/01_Original/NaturalEarth/ne_10m_admin_0_countries/ne_10m_admin_0_countries.shp")
+countries_spdf<-sf::st_read(countriesSHP)
+#names(countries_spdf)
+
+# place all data in same coordinate system
+US_census_spdf=st_transform(US_census_spdf, crs=st_crs(WBD_spdf))
+
+
+#US_census_spdf$NAME
+
+boundingbox<-st_bbox(US_census_spdf %>%
+          filter(NAME == "Maine" | NAME == "New Hampshire" | NAME == "Massachusetts"))
+```
+
+## Watersheds
+```{r}
+#WBD_spdf_tidy <- broom::tidy(WBD_spdf, region="region_lab")
+#ME_coast_spdf_tidy <- broom::tidy(ME_coast_spdf)
+
+#names(WBD_spdf_tidy);names(ME_coast_spdf_tidy)
+plotTitle = "Maine-eDNA Watersheds"
+
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_watersheds.png"))
+png(outputPngFileName,height=6,width=9, units='in', res=300)
+
+ggplot() + 
+  geom_sf(data = countries_spdf, color="grey", fill="antiquewhite") +
+  geom_sf(data = WBD_spdf, aes(fill = region_cod), alpha=0.1) +
+  geom_sf(data=lakes_spdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=rivers_spdf, color="lightblue", fill="lightblue") +
+  geom_text(data= WBD_spdf,aes(x=lon, y=lat, label=region_cod),
+    color = "black", fontface = "bold", size=2, check_overlap = FALSE) +
+  coord_sf(xlim = c(boundingbox$xmin[[1]], boundingbox$xmax[[1]]*0.98), 
+           ylim = c(boundingbox$ymin[[1]], boundingbox$ymax[[1]]*1.02), expand = FALSE) + 
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue")) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+#rm(WBD_spdf,ME_coast_spdf)
+```
+
+## Load CSVs from Survey123
 ```{r}
 #load data
 survey_sub <- data.table::fread(paste0(inputFolder,'eDNA_Sampling_v14_sub.csv'))
+survey_crew <- data.table::fread(paste0(originalFolder,'rep_crew_1.csv'))
 survey_envmeas_join <- data.table::fread(paste0(inputFolder,'survey_envmeas_join.csv'))
 survey_collection_join <- data.table::fread(paste0(inputFolder,'survey_collection_join.csv'))
 clean_filter_join <- data.table::fread(paste0(inputFolder,'clean_filter_join.csv'))
 ```
 
-# review data
+## Column names and number of rows
 ```{r}
 # displays column names & number of rows - 6589
-names(survey_sub);nrow(survey_sub)
-names(survey_envmeas_join);nrow(survey_envmeas_join)
-names(survey_collection_join);nrow(survey_collection_join)
-names(clean_filter_join);nrow(clean_filter_join)
+nrow(survey_sub);names(survey_sub)
+nrow(survey_envmeas_join);names(survey_envmeas_join)
+nrow(survey_collection_join);names(survey_collection_join)
+nrow(clean_filter_join);names(clean_filter_join)
 # Head displays the first 6 rows of the data.table
 #head(survey_sub);head(survey_envmeas_join);head(survey_collection_join);head(clean_filter_join);head(clean_filter_join)
 ```
+# SURVEY SUMMARY 
 
-# check empty site_ids
+## Count of empty or NA site_ids
 ```{r}
 # How do you want to treat NA?
 # subset the data by the NAs, explore them & their origin
 # can we programmatically fix it, or do we have to do it manually?
 
-# 0 rows blank/NA Site IDs
-survey_empty<-survey_sub[survey_sub$site_id == "" | is.na(survey_sub$site_id),]
-nrow(survey_empty)
-rm(survey_empty)
-```
+# 0 rows blank or NA Site IDs
 
+nrow(survey_sub[survey_sub$site_id == "" | is.na(survey_sub$site_id),])
+
+```
+# CREW SUMMARY
 
 "survey_GlobalID"       "survey_date"           "survey_month"         
 "survey_year"           "projects"              "supervisor"            "username"             
@@ -76,9 +169,28 @@ rm(survey_empty)
 "bottom_substrate"      "lab_date"              "envmeas_notes"         "envmeas_GlobalID"     
 "survey_edit_date"      "survey_create_date"    "envmeas_create_date"  
 
-
-# unique survey records & missing env measurements
+## Percentage of survey records with associated crew information
 ```{r}
+nrow(survey_sub)
+
+unique_survey_gids <- unique(survey_sub$survey_GlobalID)
+unique_envmeas_survey_gids <- unique(survey_crew$ParentGlobalID) 
+
+perc_gids<-(length(unique_envmeas_survey_gids)/length(unique_survey_gids))*100
+print(paste0("Percentage of survey records with crew information: ",round(perc_gids,2),"%"))
+
+```
+
+# ENVIRONMENTAL MEASUREMENTS SUMMARY
+
+unique survey records & missing env measurements
+* add dict for index sites = site ids
+* add lat long to joins
+* maps that have env variables, sites that have temperature, salinity, etc
+
+## Percentage of survey records with environmental measurements
+```{r}
+nrow(survey_sub)
 
 unique_survey_gids <- unique(survey_sub$survey_GlobalID)
 unique_envmeas_survey_gids <- unique(survey_envmeas_join$survey_GlobalID) 
@@ -92,7 +204,7 @@ unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
 perc_sids<-(length(unique_envmeas_sids)/length(unique_survey_sids))*100
 print(paste0("Percentage of site ids with environmental measurements: ",round(perc_sids,2),"%"))
 ```
-# envmeas unique site ids and names table
+## Table of unique Site IDs with environmental measurements
 ```{r}
 # export table with site ids & names
 survey_envmeas_join_siteids <- survey_envmeas_join %>%
@@ -109,24 +221,69 @@ survey_envmeas_join_siteids
 
 ```
 
-# Count of env measurements by site
+## Watersheds
+```{r}
+#WBD_spdf_tidy <- broom::tidy(WBD_spdf, region="region_lab")
+#ME_coast_spdf_tidy <- broom::tidy(ME_coast_spdf)
+
+#names(WBD_spdf_tidy);names(ME_coast_spdf_tidy)
+plotTitle = "Maine-eDNA Watersheds"
+
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_watersheds.png"))
+png(outputPngFileName,height=6,width=9, units='in', res=300)
+
+ggplot() + 
+  geom_sf(data = countries_spdf, color="grey", fill="antiquewhite") +
+  geom_sf(data = WBD_spdf, aes(fill = region_cod), alpha=0.1) +
+  geom_sf(data=lakes_spdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=rivers_spdf, color="lightblue", fill="lightblue") +
+  geom_text(data= WBD_spdf,aes(x=lon, y=lat, label=region_cod),
+    color = "black", fontface = "bold", size=2, check_overlap = FALSE) +
+  coord_sf(xlim = c(boundingbox$xmin[[1]], boundingbox$xmax[[1]]*0.98), 
+           ylim = c(boundingbox$ymin[[1]], boundingbox$ymax[[1]]*1.02), expand = FALSE) + 
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue")) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+#rm(WBD_spdf,ME_coast_spdf)
+```
+
+## Table of count of environmental measurements by Site ID
 ```{r}
 
 nrow(survey_envmeas_join)
 
-survey_envmeas_join_count <- survey_envmeas_join %>%
-         dplyr::select(envmeas_GlobalID, site_id) %>% 
-         dplyr::group_by(site_id) %>%
-         dplyr::count(site_id) %>%
-         dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2))
+survey_envmeas_join %>%
+  filter(!if_any(c(envmeas_GlobalID, site_id), is.na)) %>%
+  dplyr::select(envmeas_GlobalID, site_id) %>% 
+  dplyr::group_by(site_id) %>%
+  dplyr::count(site_id) %>%
+  dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2))
+```
 
+## Count of environmental measurements by Site ID plot
+```{r}
 plotTitle = "Count of environmental measurements by site"
 
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_count_site.png"))
 png(outputPngFileName,height=3,width=6, units='in', res=150)
 
-ggplot(survey_envmeas_join_count,
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(envmeas_GlobalID, site_id), is.na)) %>%
+         dplyr::select(envmeas_GlobalID, site_id) %>% 
+         dplyr::group_by(site_id) %>%
+         dplyr::count(site_id) %>%
+         dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)),
        aes(site_id, n, fill=site_id)) +
   geom_bar(stat="identity") +
   xlab("Site ID") +
@@ -139,14 +296,22 @@ print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
 knitr::include_graphics(outputPngFileName)
+```
 
+## Percentage of environmental measurements by Site ID plot
+```{r}
 plotTitle = "Percent of environmental measurements by site"
 
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_perc_site.png"))
 png(outputPngFileName,height=3,width=6, units='in', res=150)
 
-ggplot(survey_envmeas_join_count, 
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(envmeas_GlobalID, site_id), is.na)) %>%
+         dplyr::select(envmeas_GlobalID, site_id) %>% 
+         dplyr::group_by(site_id) %>%
+         dplyr::count(site_id) %>%
+         dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)), 
        aes(site_id, perc, fill=site_id)) +
   geom_bar(stat="identity") +
   ggtitle(plotTitle) +
@@ -164,32 +329,34 @@ knitr::include_graphics(outputPngFileName)
 ```
 
 
+# ENVIRONMENTAL MEASUREMENTS: MEASUREMENT DEPTH
+Measurement depth is recorded in meters (M).
 
-# unique site_ids with env measurements & missing salinity measurements
+## Percentage of Site IDs with environmental depth measurements
 ```{r}
 unique_survey_sids <- unique(survey_sub$site_id)
 unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
 unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
-  dplyr::filter(!is.na(salinity)) %>%
+  filter(!if_any(c(envmeas_depth, site_id), is.na)) %>%
   dplyr::select(site_id) %>%
   dplyr::distinct()
 
 perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100
-print(paste0("Percentage of site ids with salinity measurements: ",round(perc_sids,2),"%"))
+print(paste0("Percentage of site ids with envmeas_depth measurements: ",round(perc_sids,2),"%"))
 
 perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
-print(paste0("Percentage of site ids with environmental measurements that also have salinity: ",round(perc_sids,2),"%"))
+print(paste0("Percentage of site ids with environmental measurements that also have envmeas_depth: ",round(perc_sids,2),"%"))
 ```
 
-# envmeas salinity unique site ids and names table
+## Table of Site IDs with environmental depth measurements
 ```{r}
 # export table with site ids & names
 survey_envmeas_join_siteids <- survey_envmeas_join %>%
-  dplyr::filter(!is.na(salinity)) %>%
+  filter(!if_any(c(envmeas_depth, site_id), is.na)) %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_salinity_siteids_table.png"))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_depth_siteids_table.png"))
 png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
 grid.table(survey_envmeas_join_siteids, theme=tt3)
 dev.off()
@@ -197,54 +364,74 @@ dev.off()
 knitr::include_graphics(outputPngFileName)
 survey_envmeas_join_siteids
 
+rm(survey_envmeas_join_siteids)
+
 ```
 
-# EnvMeas Salinity check
+
+## Environmental measurements where Measurement Depth is greater than 50
 ```{r}
-quantile(survey_envmeas_join$salinity, na.rm=TRUE)
-min(survey_envmeas_join$salinity, na.rm=TRUE)
-max(survey_envmeas_join$salinity, na.rm=TRUE)
+
+survey_envmeas_join %>%
+  filter(!if_any(c(envmeas_depth, site_id), is.na) & envmeas_depth > 50)
 ```
 
+## Environmental measurements where System Type is Stream
 ```{r}
+survey_envmeas_join %>%
+  filter(!if_any(c(envmeas_depth, site_id), is.na) & system_type=="S")
+```
+
+## Environmental measurement Depth quantiles
+```{r}
+quantile(survey_envmeas_join$envmeas_depth, na.rm=TRUE)
+min(survey_envmeas_join$envmeas_depth, na.rm=TRUE)
+max(survey_envmeas_join$envmeas_depth, na.rm=TRUE)
+```
+
+## Environmental measurement Depth distribution
+```{r}
+
 # check distribution
-ggplot(survey_envmeas_join %>%
-         filter(salinity<200),aes(x=as.numeric(salinity))) + 
+ggplot(survey_envmeas_join,aes(x=as.numeric(envmeas_depth))) + 
   ylab("Density") +
-  xlab("Salinity (ppm)") +
+  xlab("Measurement Depth (m)") +
   geom_histogram(aes(y=..density..), colour="black", fill="white")+
   geom_density(alpha=.2, fill="#FF6666") 
 
 ```
 
-
-# EnvMeas Salinity by site and month
+## Environmental measurement Depth by Site ID and Month
 ```{r}
 
-#plotTitle = "Count of Survey123 records in freezer by type"
-#fileName="s123_in_freezer_count_pff"
+#plotTitle = "Depth by Site and Month"
+#fileName="s123_envmeas_depth_site_month"
+
 #outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 #png(outputPngFileName,height=4,width=6, units='in', res=300)
-#  Salinity, ppm
+#  Depth, M
 #ggplot(survey_envmeas_join %>%
-#         filter(salinity<200), aes(x=survey_year, y=salinity, fill=survey_year)) + 
+#         filter(!if_any(c(envmeas_depth, site_id), is.na)), aes(x=survey_year, y=envmeas_depth, fill=survey_year)) + 
 #  geom_boxplot() +
-#  ylab("Salinity ()") +
+#  xlab("Depth ()") +
 #  xlab("Year") +
 #  theme(axis.text.x = element_text(angle = 90), legend.position = "none") +
 #  facet_grid(survey_month ~ .)
 #print(paste("Plot saved as:",outputPngFileName))
 #dev.off()
+```
 
-plotTitle = "Salinity by Site and Month"
-fileName="s123_envmeas_salinity_site_month"
+## Environmental measurement Depth by Site ID and Month
+```{r}
+plotTitle = "Depth by Site and Month"
+fileName="s123_envmeas_depth_site_month"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=16,width=6, units='in', res=300)
-#  Salinity, ppm
-ggplot(survey_envmeas_join  %>%
-         filter(salinity<200), aes(x=site_id, y=as.numeric(salinity), fill=site_id)) + 
+#  Depth, M
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(envmeas_depth, site_id), is.na)), aes(x=site_id, y=as.numeric(envmeas_depth), fill=site_id)) + 
   geom_boxplot() +
-  ylab("Salinity ()") +
+  xlab("Depth ()") +
   xlab("Site ID") +
   facet_grid(survey_month ~ .) +
   ggtitle(plotTitle) +
@@ -255,16 +442,41 @@ print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
 knitr::include_graphics(outputPngFileName)
+```
 
-plotTitle = "Salinity by Site"
-fileName="s123_envmeas_salinity_site"
+## Environmental measurement Depth by System
+```{r}
+
+plotTitle = "Depth by System"
+fileName="s123_envmeas_depth_system"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
-#  Salinity, ppm
+#  Depth, M
 ggplot(survey_envmeas_join %>%
-         filter(salinity<200), aes(x=site_id, y=as.numeric(salinity), fill=site_id)) + 
+         filter(!if_any(c(envmeas_depth, site_id), is.na)), aes(x=system_type, y=as.numeric(envmeas_depth), fill=system_type)) + 
   geom_boxplot() +
-  ylab("Salinity ()") +
+  ylab("Depth (M)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurement Depth by Site ID
+```{r}
+plotTitle = "Depth by Site"
+fileName="s123_envmeas_depth_site"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  Depth, M
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(envmeas_depth, site_id), is.na)), aes(x=site_id, y=as.numeric(envmeas_depth), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Depth ()") +
   xlab("Site ID") +
   ggtitle(plotTitle) +
   theme(plot.title = element_text(hjust = 0.5)) +
@@ -277,9 +489,11 @@ knitr::include_graphics(outputPngFileName)
 
 ```
 
+# ENVIRONMENTAL MEASUREMENTS: WATER TEMPERATURE
+Water temperature is typically recorded with a YSI instrument. Water temperature is recorded in °C and has a range of -5°C to 50°C.
 
-
-# unique site_ids with env measurements & missing water_temp measurements
+## Percentage of Site IDs with environmental water temperature measurements
+* add percentage of index site ids with environmental measurements that also have water_temp
 ```{r}
 unique_survey_sids <- unique(survey_sub$site_id)
 unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
@@ -295,7 +509,7 @@ perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
 print(paste0("Percentage of site ids with environmental measurements that also have water_temp: ",round(perc_sids,2),"%"))
 ```
 
-# envmeas water_temp unique site ids and names table
+## Table of Site IDs with environmental water temperature measurements
 ```{r}
 # export table with site ids & names
 survey_envmeas_join_siteids <- survey_envmeas_join %>%
@@ -313,27 +527,81 @@ survey_envmeas_join_siteids
 
 ```
 
-# EnvMeas Temperature check
+## Environmental measurement of Temperature quantiles
 ```{r}
-
 quantile(survey_envmeas_join$water_temp, na.rm=TRUE)
 min(survey_envmeas_join$water_temp, na.rm=TRUE)
 max(survey_envmeas_join$water_temp, na.rm=TRUE)
 
-# check distribution
-ggplot(survey_envmeas_join %>%
-         filter(water_temp<50),aes(x=as.numeric(water_temp))) + 
-  ylab("Density") +
-  xlab("Temperature (C)") +
-  geom_histogram(aes(y=..density..), colour="black", fill="white")+
-  geom_density(alpha=.2, fill="#FF6666") 
+```
+## Environmental measurement where water temperature is greater than 50
+```{r}
+survey_envmeas_join %>%
+  filter(!if_any(c(water_temp, site_id), is.na) & water_temp>50)
+```
 
+## Environmental measurement of Temperature distribution
+```{r}
+plotTitle = "Distribution of Water Temperature"
+# check distribution
+p1<-ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(water_temp, site_id), is.na)),aes(x=as.numeric(water_temp))) + 
+  ggtitle(plotTitle) +
+  ylab("Density") +
+  xlab("Water Temperature (C)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+plotTitle = "Distribution of Water Temperature (truncated)"
+# check distribution
+p2<-ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50),aes(x=as.numeric(water_temp))) + 
+  ggtitle(plotTitle) +
+  ylab("Density") +
+  xlab("Water Temperature (C)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+grid.arrange(p1, p2, nrow=2)
+rm(p1,p2)
 ```
 
 
+## Heatmap of water temperature by depth and month 
+```{r}
+#ggplot(survey_envmeas_join %>%
+#         filter(!if_any(c(water_temp, site_id, envmeas_depth), is.na)) %>%
+#         mutate(depth_group = cut(envmeas_depth, breaks = seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))), #ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5),
+#                         labels = seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))) + 5, #ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)),
+#         month_group = cut(survey_month, breaks = seq(floor(min(na.omit(survey_envmeas_join$survey_month))), #ceiling(max(na.omit(survey_envmeas_join$survey_month))), by = 1),
+#                         labels = seq(floor(min(na.omit(survey_envmeas_join$survey_month))) + 1, #ceiling(max(na.omit(survey_envmeas_join$survey_month))), by = 1))) %>%
+#         group_by(depth_group, month_group) %>%
+#    summarise(value = mean(water_temp), .groups = "drop") %>%
+#    mutate(across(where(is.factor), ~as.numeric(as.character(.x)))), aes(month_group, depth_group, fill= as.numeric(value))) +
+#  scale_y_discrete(name ="Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))), #ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+#  scale_x_discrete(name ="Month", 
+#                    limits=seq(1, 12, by=1)) +
+#  geom_tile()
+```
+## Scatter plot of water temperature by depth, month, and system type
+```{r}
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(water_temp, site_id, envmeas_depth), is.na) & water_temp<50), 
+       aes(x=survey_month, y=envmeas_depth, color=water_temp)) +
+  geom_point(size=2) +
+  geom_jitter(width = 0.25, height = 2) +
+  scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
+  scale_y_discrete(name ="Measurement Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))),
+                                                 ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+  labs(color='Water Temp (C)') +
+  facet_grid(system_type ~ .)
+```
 
-
-# EnvMeas Temperature by site and month
+## Environmental measurement of Water Temperature by site and month plot
+* add grouping by system_type
 ```{r}
 
 
@@ -351,14 +619,17 @@ ggplot(survey_envmeas_join %>%
 #  facet_grid(survey_month ~ .)
 #print(paste("Plot saved as:",outputPngFileName))
 #dev.off()
+```
 
+## Environmental measurement of Water Temperature by Site and Month plot
+```{r}
 plotTitle = "Temperature by Site and Month"
 fileName="s123_envmeas_temp_site_month"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=16,width=6, units='in', res=300)
 #  Temperature, C
 ggplot(survey_envmeas_join %>%
-         filter(water_temp<50), aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
+         filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
   geom_boxplot() +
   ylab("Temperature (C)") +
   xlab("Site ID") +
@@ -371,14 +642,38 @@ print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
 knitr::include_graphics(outputPngFileName)
+```
 
+## Environmental measurement of Water Temperature by System plot
+```{r}
+plotTitle = "Temperature by System"
+fileName="s123_envmeas_temp_system"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  Temperature, C
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), aes(x=system_type, y=as.numeric(water_temp), fill=system_type)) + 
+  geom_boxplot() +
+  ylab("Temperature (C)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurement of Water Temperature by Site ID plot
+```{r}
 plotTitle = "Temperature by Site"
 fileName="s123_envmeas_temp_site"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Temperature, C
 ggplot(survey_envmeas_join %>%
-         filter(water_temp<50), aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
+         filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
   geom_boxplot() +
   ylab("Temperature (C)") +
   xlab("Site ID") +
@@ -391,35 +686,39 @@ dev.off()
 
 knitr::include_graphics(outputPngFileName)
 
-
 ```
 
-# unique site_ids with env measurements & missing envmeas_depth measurements
+
+# ENVIRONMENTAL MEASUREMENTS: SALINITY
+Salinity is recorded in PSU (Practical Salinity Unit).
+
+## Percentage of Site IDs with environmental measurements of Salinity
+
+* add percentage of index site ids with environmental measurements that also have salinity
 ```{r}
 unique_survey_sids <- unique(survey_sub$site_id)
 unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
 unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
-  dplyr::filter(!is.na(envmeas_depth)) %>%
+  dplyr::filter(!if_any(c(salinity, site_id), is.na)) %>%
   dplyr::select(site_id) %>%
   dplyr::distinct()
 
 perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100
-print(paste0("Percentage of site ids with envmeas_depth measurements: ",round(perc_sids,2),"%"))
+print(paste0("Percentage of site ids with salinity measurements: ",round(perc_sids,2),"%"))
 
 perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
-print(paste0("Percentage of site ids with environmental measurements that also have envmeas_depth: ",round(perc_sids,2),"%"))
+print(paste0("Percentage of site ids with environmental measurements that also have salinity: ",round(perc_sids,2),"%"))
 ```
 
-
-# envmeas envmeas_depth unique site ids and names table
+## Table of Site IDs with environmental Salinity measurements
 ```{r}
 # export table with site ids & names
 survey_envmeas_join_siteids <- survey_envmeas_join %>%
-  dplyr::filter(!is.na(envmeas_depth)) %>%
+  dplyr::filter(!if_any(c(salinity, site_id), is.na)) %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
-outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_depth_siteids_table.png"))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_salinity_siteids_table.png"))
 png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
 grid.table(survey_envmeas_join_siteids, theme=tt3)
 dev.off()
@@ -429,52 +728,95 @@ survey_envmeas_join_siteids
 
 ```
 
-# EnvMeas Depth check
+## Environmental measurement of Salinity quantiles
 ```{r}
+quantile(survey_envmeas_join$salinity, na.rm=TRUE)
+min(survey_envmeas_join$salinity, na.rm=TRUE)
+max(survey_envmeas_join$salinity, na.rm=TRUE)
+```
+## Environmental measurements where turbidity is greater than 40
+```{r}
+survey_envmeas_join %>%
+         filter(!if_any(c(salinity, site_id), is.na) & salinity>40)
+```
 
-quantile(survey_envmeas_join$envmeas_depth, na.rm=TRUE)
-min(survey_envmeas_join$envmeas_depth, na.rm=TRUE)
-max(survey_envmeas_join$envmeas_depth, na.rm=TRUE)
-
+## Environmental measurement of Salinity distribution
+```{r}
+plotTitle = "Distribution of Salinity"
 # check distribution
-ggplot(survey_envmeas_join,aes(x=as.numeric(envmeas_depth))) + 
+p1<-ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(salinity, site_id), is.na)),aes(x=as.numeric(salinity))) + 
+  ggtitle(plotTitle) +
   ylab("Density") +
-  xlab("Depth ()") +
+  xlab("Practical Salinity Unit (PSU)") +
   geom_histogram(aes(y=..density..), colour="black", fill="white")+
-  geom_density(alpha=.2, fill="#FF6666") 
+  geom_density(alpha=.2, fill="#FF6666") +
+  theme(plot.title = element_text(hjust = 0.5))
 
+plotTitle = "Distribution of Salinity (truncated)"
+# check distribution
+p2<-ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(salinity, site_id), is.na) & salinity<50),aes(x=as.numeric(salinity))) + 
+  ggtitle(plotTitle) +
+  ylab("Density") +
+  xlab("Practical Salinity Unit (PSU)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+grid.arrange(p1, p2, nrow=2)
+rm(p1,p2)
 ```
 
 
+## Scatter plot of salinity by depth, month, and system type
+```{r}
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(salinity, site_id, envmeas_depth), is.na) & salinity<50), 
+       aes(x=survey_month, y=envmeas_depth, color=salinity)) +
+  geom_point(size=2) +
+  geom_jitter(width = 0.25, height = 2) +
+  scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
+  scale_y_discrete(name ="Measurement Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))),
+                                                 ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+  labs(color='Practical Salinity Unit (PSU)') +
+  facet_grid(system_type ~ .)
+```
 
-# Envmeas depth by site and month
+## Environmental measurement of Salinity by Site ID and Month
+* add note about depth and sampling year/month
 ```{r}
 
-#plotTitle = "Depth by Site and Month"
-#fileName="s123_envmeas_depth_site_month"
-
+#plotTitle = "Count of Survey123 records in freezer by type"
+#fileName="s123_in_freezer_count_pff"
 #outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 #png(outputPngFileName,height=4,width=6, units='in', res=300)
-#  Depth, M
+#  Salinity, ppm
 #ggplot(survey_envmeas_join %>%
-#         filter(envmeas_depth<50), aes(x=survey_year, y=envmeas_depth, fill=survey_year)) + 
+#         filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
+#       aes(x=survey_year, y=salinity, fill=survey_year)) + 
 #  geom_boxplot() +
-#  xlab("Depth ()") +
+#  ylab("Salinity ()") +
 #  xlab("Year") +
 #  theme(axis.text.x = element_text(angle = 90), legend.position = "none") +
 #  facet_grid(survey_month ~ .)
 #print(paste("Plot saved as:",outputPngFileName))
 #dev.off()
+```
 
-plotTitle = "Depth by Site and Month"
-fileName="s123_envmeas_depth_site_month"
+## Environmental measurement of Salinity by Site ID and Month
+```{r}
+plotTitle = "Salinity by Site and Month"
+fileName="s123_envmeas_salinity_site_month"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=16,width=6, units='in', res=300)
-#  Depth, M
-ggplot(survey_envmeas_join %>%
-         filter(envmeas_depth<50), aes(x=site_id, y=as.numeric(envmeas_depth), fill=site_id)) + 
+#  Salinity, ppm
+ggplot(survey_envmeas_join  %>%
+         filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
+       aes(x=site_id, y=as.numeric(salinity), fill=site_id)) + 
   geom_boxplot() +
-  xlab("Depth ()") +
+  ylab("Practical Salinity Unit (PSU)") +
   xlab("Site ID") +
   facet_grid(survey_month ~ .) +
   ggtitle(plotTitle) +
@@ -485,16 +827,607 @@ print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
 knitr::include_graphics(outputPngFileName)
+```
 
-plotTitle = "Depth by Site"
-fileName="s123_envmeas_depth_site"
+## Environmental measurement of Salinity by System
+```{r}
+
+plotTitle = "Salinity by System"
+fileName="s123_envmeas_salinity_system"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
-#  Depth, M
+#  Salinity, ppm
 ggplot(survey_envmeas_join %>%
-         filter(envmeas_depth<50), aes(x=site_id, y=as.numeric(envmeas_depth), fill=site_id)) + 
+         filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
+       aes(x=system_type, y=as.numeric(salinity), fill=system_type)) + 
   geom_boxplot() +
-  ylab("Depth ()") +
+  ylab("Practical Salinity Unit (PSU)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurement of Salinity by Site ID
+```{r}
+
+plotTitle = "Salinity by Site"
+fileName="s123_envmeas_salinity_site"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  Salinity, ppm
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
+       aes(x=site_id, y=as.numeric(salinity), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Practical Salinity Unit (PSU)") +
+  xlab("Site ID") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+# ENVIRONMENTAL MEASUREMENTS: TURBIDITY
+Turbidity is typically collected with a YSI instrument. Turbidity is recorded in FNU (Formazin Nephelometric Unit) and has a range of 0 to 4000 FNU. 
+
+## Percentage of Site IDs with environmental measurements of Turbidity
+* add percentage of index site ids with environmental measurements that also have turbidity
+```{r}
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
+unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(turbidity, site_id), is.na)) %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with turbidity measurements: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
+print(paste0("Percentage of site ids with environmental measurements that also have turbidity: ",round(perc_sids,2),"%"))
+```
+
+## Table of Site IDs with environmental turbidity measurements
+```{r}
+# export table with site ids & names
+survey_envmeas_join_siteids <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(turbidity, site_id), is.na)) %>%
+  dplyr::select(site_id, general_location_name) %>%
+  dplyr::distinct() %>%
+  dplyr::arrange(site_id)
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_turbidity_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+grid.table(survey_envmeas_join_siteids, theme=tt3)
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
+
+```
+
+## Environmental measurements of Turbidity quantile
+```{r}
+quantile(survey_envmeas_join$turbidity, na.rm=TRUE)
+min(survey_envmeas_join$turbidity, na.rm=TRUE)
+max(survey_envmeas_join$turbidity, na.rm=TRUE)
+```
+
+
+## Environmental measurements where turbidity is greater than 40
+```{r}
+survey_envmeas_join %>%
+         filter(!if_any(c(turbidity, site_id), is.na) & turbidity>40)
+```
+
+## Environmental measurements of turbidity distribution
+```{r}
+plotTitle = "Distribution of Turbidity"
+# check distribution
+p1<-ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(turbidity, site_id), is.na)),aes(x=as.numeric(turbidity))) + 
+  ggtitle(plotTitle) +
+  ylab("Density") +
+  xlab("Turbidity (Formazin Nephelometric Unit)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+plotTitle = "Distribution of Turbidity (truncated)"
+# check distribution
+p2<-ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(turbidity, site_id), is.na) & turbidity<40),aes(x=as.numeric(turbidity))) + 
+  ggtitle(plotTitle) +
+  ylab("Density") +
+  xlab("Turbidity (Formazin Nephelometric Unit)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+grid.arrange(p1, p2, nrow=2)
+rm(p1,p2)
+
+```
+
+## Scatter plot of water temperature by depth and month
+```{r}
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(turbidity, site_id, envmeas_depth), is.na) & turbidity<40), 
+       aes(x=survey_month, y=envmeas_depth, color=turbidity)) +
+  geom_point(size=2) +
+  geom_jitter(width = 0.25, height = 2) +
+  scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
+  scale_y_discrete(name ="Measurement Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))),
+                                                 ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+  labs(color='Turbidity (Formazin Nephelometric Unit)') +
+  facet_grid(system_type ~ .)
+```
+
+## Environmental measurements of Turbidity by Site ID and Month
+* add note about depth and sampling year/month
+```{r}
+
+#plotTitle = "Count of Survey123 records in freezer by type"
+#fileName="s123_in_freezer_count_pff"
+#outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+#png(outputPngFileName,height=4,width=6, units='in', res=300)
+#  Salinity, ppm
+#ggplot(survey_envmeas_join %>%
+#         filter(!if_any(c(turbidity, site_id), is.na) & salinity<40), aes(x=survey_year, y=salinity, fill=survey_year)) + 
+#  geom_boxplot() +
+#  ylab("Salinity ()") +
+#  xlab("Year") +
+#  theme(axis.text.x = element_text(angle = 90), legend.position = "none") +
+#  facet_grid(survey_month ~ .)
+#print(paste("Plot saved as:",outputPngFileName))
+#dev.off()
+```
+
+## Environmental measurements of Turbidity by Site ID and Month
+```{r}
+plotTitle = "Turbidity by Site and Month"
+fileName="s123_envmeas_turbidity_site_month"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=16,width=6, units='in', res=300)
+#  turbidity, Formazin Nephelometric Unit
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(turbidity, site_id), is.na)), aes(x=site_id, y=as.numeric(turbidity), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Turbidity (Formazin Nephelometric Unit)") +
+  xlab("Site ID") +
+  facet_grid(survey_month ~ .) +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurements of Turbidity by System
+```{r}
+
+plotTitle = "Turbidity by System"
+fileName="s123_envmeas_turbidity_system"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  turbidity, Formazin Nephelometric Unit
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(turbidity, site_id), is.na)), aes(x=system_type, y=as.numeric(turbidity), fill=system_type)) + 
+  geom_boxplot() +
+  ylab("Turbidity (Formazin Nephelometric Unit)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+## Environmental measurements of Turbidity by Site ID
+```{r}
+
+plotTitle = "Turbidity by Site"
+fileName="s123_envmeas_turbidity_site"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  turbidity, Formazin Nephelometric Unit
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(turbidity, site_id), is.na)), aes(x=site_id, y=as.numeric(turbidity), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Turbidity (Formazin Nephelometric Unit)") +
+  xlab("Site ID") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+# ENVIRONMENTAL MEASUREMENTS: CONDUCTIVITY
+Conductivity is typically collected with a YSI instrument. Conductivity is recorded in μS/cm and has a range of 0 to 100,000 μS/cm. 
+
+## Percentage of Site IDs with environmental measurements of Conductivity
+* add percentage of index site ids with environmental measurements that also have conductivity
+
+```{r}
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
+unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(conductivity, site_id), is.na)) %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with conductivity measurements: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
+print(paste0("Percentage of site ids with environmental measurements that also have conductivity: ",round(perc_sids,2),"%"))
+```
+
+## Table of Site IDs with environmental conductivity measurements
+```{r}
+# export table with site ids & names
+survey_envmeas_join_siteids <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(conductivity, site_id), is.na)) %>%
+  dplyr::select(site_id, general_location_name) %>%
+  dplyr::distinct() %>%
+  dplyr::arrange(site_id)
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_conductivity_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+grid.table(survey_envmeas_join_siteids, theme=tt3)
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
+
+```
+
+## Environmental measurements of Conductivity quantile
+```{r}
+quantile(survey_envmeas_join$conductivity, na.rm=TRUE)
+min(survey_envmeas_join$conductivity, na.rm=TRUE)
+max(survey_envmeas_join$conductivity, na.rm=TRUE)
+```
+
+
+## Environmental measurements where conductivity is less than 100
+```{r}
+survey_envmeas_join %>%
+  select(survey_date, site_id, general_location_name, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+  filter(!if_any(c(conductivity, site_id), is.na) & conductivity<100)
+```
+
+## Environmental measurements of conductivity distribution
+```{r}
+plotTitle = "Distribution of Conductivity"
+# check distribution
+p1<- ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(conductivity, site_id), is.na)),
+       aes(x=as.numeric(conductivity))) + 
+  ylab("Density") +
+  xlab("Conductivity (μS/cm)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+plotTitle = "Distribution of Conductivity (truncated)"
+# check distribution
+p2<- ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(conductivity, site_id), is.na) & conductivity<100),
+       aes(x=as.numeric(conductivity))) + 
+  ylab("Density") +
+  xlab("Conductivity (μS/cm)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(p1, p2, nrow=2)
+rm(p1,p2)
+
+```
+
+## Scatter plot of conductivity by depth, month, and system type
+```{r}
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(conductivity, site_id, envmeas_depth), is.na) & conductivity<50), 
+       aes(x=survey_month, y=envmeas_depth, color=conductivity)) +
+  geom_point(size=2) +
+  geom_jitter(width = 0.25, height = 2) +
+  scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
+  scale_y_discrete(name ="Measurement Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))),
+                                                 ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+  labs(color="Conductivity (μS/cm)") +
+  facet_grid(system_type ~ .)
+```
+
+## Environmental measurements of Conductivity by Site ID and Month
+* add note about depth and sampling year/month
+```{r}
+
+#plotTitle = "Count of Survey123 records in freezer by type"
+#fileName="s123_in_freezer_count_pff"
+#outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+#png(outputPngFileName,height=4,width=6, units='in', res=300)
+#  Salinity, ppm
+#ggplot(survey_envmeas_join %>%
+#         filter(!if_any(c(conductivity, site_id), is.na) & salinity<40), aes(x=survey_year, y=salinity, fill=survey_year)) + 
+#  geom_boxplot() +
+#  ylab("Salinity ()") +
+#  xlab("Year") +
+#  theme(axis.text.x = element_text(angle = 90), legend.position = "none") +
+#  facet_grid(survey_month ~ .)
+#print(paste("Plot saved as:",outputPngFileName))
+#dev.off()
+```
+
+## Environmental measurements of Conductivity by Site ID and Month
+```{r}
+plotTitle = "Conductivity by Site and Month"
+fileName="s123_envmeas_conductivity_site_month"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=16,width=6, units='in', res=300)
+#  conductivity, μS/cm
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(conductivity, site_id), is.na)), aes(x=site_id, y=as.numeric(conductivity), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Conductivity (μS/cm)") +
+  xlab("Site ID") +
+  facet_grid(survey_month ~ .) +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurements of Conductivity by System
+```{r}
+
+plotTitle = "Conductivity by System"
+fileName="s123_envmeas_conductivity_system"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  conductivity, μS/cm
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(conductivity, site_id), is.na)), aes(x=system_type, y=as.numeric(conductivity), fill=system_type)) + 
+  geom_boxplot() +
+  ylab("Conductivity (μS/cm)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+## Environmental measurements of Conductivity by Site ID
+```{r}
+
+plotTitle = "Conductivity by Site"
+fileName="s123_envmeas_conductivity_site"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  conductivity, μS/cm
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(conductivity, site_id), is.na)), aes(x=site_id, y=as.numeric(conductivity), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Conductivity (μS/cm)") +
+  xlab("Site ID") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+# ENVIRONMENTAL MEASUREMENTS: DISSOLVED OXYGEN
+Dissolved Oxygen is typically collected with a YSI instrument. Dissolved Oxygen is recorded in mg/L and has a range of 0 to 50 mg/L. 
+
+## Percentage of Site IDs with environmental measurements of Dissolved Oxygen
+* add percentage of index site ids with environmental measurements that also have dissolved oxygen
+
+```{r}
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
+unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(do, site_id), is.na)) %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with dissolved oxygen measurements: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
+print(paste0("Percentage of site ids with environmental measurements that also have dissolved oxygen: ",round(perc_sids,2),"%"))
+```
+
+## Table of Site IDs with environmental dissolved oxygen measurements
+```{r}
+# export table with site ids & names
+survey_envmeas_join_siteids <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(do, site_id), is.na)) %>%
+  dplyr::select(site_id, general_location_name) %>%
+  dplyr::distinct() %>%
+  dplyr::arrange(site_id)
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_do_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+grid.table(survey_envmeas_join_siteids, theme=tt3)
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
+
+```
+
+## Environmental measurements of Dissolved Oxygen quantile
+```{r}
+quantile(survey_envmeas_join$do, na.rm=TRUE)
+min(survey_envmeas_join$do, na.rm=TRUE)
+max(survey_envmeas_join$do, na.rm=TRUE)
+```
+
+
+## Environmental measurements where dissolved oxygen is greater than 50
+```{r}
+survey_envmeas_join %>%
+         filter(!if_any(c(do, site_id), is.na) & do>50)
+```
+
+## Environmental measurements of dissolved oxygen distribution
+```{r}
+plotTitle = "Distribution of Dissolved Oxygen"
+# check distribution
+p1<- ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(do, site_id), is.na)),
+       aes(x=as.numeric(do))) + 
+  ylab("Density") +
+  xlab("Dissolved Oxygen (mg/L)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+plotTitle = "Distribution of Dissolved Oxygen (truncated)"
+# check distribution
+p2<- ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(do, site_id), is.na) & do<50),
+       aes(x=as.numeric(do))) + 
+  ylab("Density") +
+  xlab("Dissolved Oxygen (mg/L)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(p1, p2, nrow=2)
+rm(p1,p2)
+
+```
+
+## Scatter plot of dissolved oxygen by depth, month, and system type
+```{r}
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(do, site_id, envmeas_depth), is.na) & do<50), 
+       aes(x=survey_month, y=envmeas_depth, color=do)) +
+  geom_point(size=2) +
+  geom_jitter(width = 0.25, height = 2) +
+  scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
+  scale_y_discrete(name ="Measurement Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))),
+                                                 ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+  labs(color="Dissolved Oxygen (mg/L)") +
+  facet_grid(system_type ~ .)
+```
+
+## Environmental measurements of Dissolved Oxygen by Site ID and Month
+* add note about depth and sampling year/month
+```{r}
+
+#plotTitle = "Count of Survey123 records in freezer by type"
+#fileName="s123_envmeas_do_year"
+#outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+#png(outputPngFileName,height=4,width=6, units='in', res=300)
+#  Dissolved Oxygen, mg/L
+#ggplot(survey_envmeas_join %>%
+#         filter(!if_any(c(do, site_id), is.na) & do<50), aes(x=survey_year, y=salinity, fill=survey_year)) + 
+#  geom_boxplot() +
+#  ylab("Dissolved Oxygen (mg/L)") +
+#  xlab("Year") +
+#  theme(axis.text.x = element_text(angle = 90), legend.position = "none") +
+#  facet_grid(survey_month ~ .)
+#print(paste("Plot saved as:",outputPngFileName))
+#dev.off()
+```
+
+## Environmental measurements of Dissolved Oxygen by Site ID and Month
+```{r}
+plotTitle = "Dissolved Oxygen by Site and Month"
+fileName="s123_envmeas_do_site_month"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=16,width=6, units='in', res=300)
+#  Dissolved Oxygen (mg/L)
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(do, site_id), is.na) & do<50), aes(x=site_id, y=as.numeric(do), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Dissolved Oxygen (mg/L)") +
+  xlab("Site ID") +
+  facet_grid(survey_month ~ .) +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurements of Dissolved Oxygen by System
+```{r}
+
+plotTitle = "Dissolved Oxygen by System"
+fileName="s123_envmeas_do_system"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  Dissolved Oxygen (mg/L)
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(do, site_id), is.na) & do<50), aes(x=system_type, y=as.numeric(do), fill=system_type)) + 
+  geom_boxplot() +
+  ylab("Dissolved Oxygen (mg/L)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+## Environmental measurements of Dissolved Oxygen by Site ID
+```{r}
+
+plotTitle = "Dissolved Oxygen by Site"
+fileName="s123_envmeas_do_site"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  do, μS/cm
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(do, site_id), is.na) & do<50), aes(x=site_id, y=as.numeric(do), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("Dissolved Oxygen (mg/L)") +
   xlab("Site ID") +
   ggtitle(plotTitle) +
   theme(plot.title = element_text(hjust = 0.5)) +
@@ -508,12 +1441,387 @@ knitr::include_graphics(outputPngFileName)
 ```
 
 
-# unique site_ids with collections & missing water_depth measurements
+# ENVIRONMENTAL MEASUREMENTS: PAR1
+Photosynthetically Active Radiation (Channel 1: Up looking), or PAR1, is typically collected with a YSI instrument. PAR1 is recorded in μmoles/sec/m². 
+
+## Percentage of Site IDs with environmental measurements of PAR1
+* add percentage of index site ids with environmental measurements that also have PAR1
+
+```{r}
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
+unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(par1, site_id), is.na)) %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with par1 measurements: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
+print(paste0("Percentage of site ids with environmental measurements that also have par1: ",round(perc_sids,2),"%"))
+```
+
+## Table of Site IDs with environmental par1 measurements
+```{r}
+# export table with site ids & names
+survey_envmeas_join_siteids <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(par1, site_id), is.na)) %>%
+  dplyr::select(site_id, general_location_name) %>%
+  dplyr::distinct() %>%
+  dplyr::arrange(site_id)
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_par1_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+grid.table(survey_envmeas_join_siteids, theme=tt3)
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
+
+```
+
+## Environmental measurements of par1 quantile
+```{r}
+quantile(survey_envmeas_join$par1, na.rm=TRUE)
+min(survey_envmeas_join$par1, na.rm=TRUE)
+max(survey_envmeas_join$par1, na.rm=TRUE)
+```
+
+
+## Environmental measurements where par1 is greater than 40
+```{r}
+survey_envmeas_join %>%
+         filter(!if_any(c(par1, site_id), is.na) & par1>1000)
+```
+
+## Environmental measurements of par1 distribution
+```{r}
+# check distribution
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par1, site_id), is.na)),
+       aes(x=as.numeric(par1))) + 
+  ylab("Density") +
+  xlab("PAR1 (μmoles/sec/m²)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") 
+
+```
+
+## Scatter plot of par1 by depth, month, and system type
+```{r}
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par1, site_id, envmeas_depth), is.na)), 
+       aes(x=survey_month, y=envmeas_depth, color=par1)) +
+  geom_point(size=2) +
+  geom_jitter(width = 0.25, height = 2) +
+  scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
+  scale_y_discrete(name ="Measurement Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))),
+                                                 ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+  labs(color="PAR1 (μmoles/sec/m²)") +
+  facet_grid(system_type ~ .)
+```
+
+## Environmental measurements of par1 by Site ID and Month
+* add note about depth and sampling year/month
+```{r}
+
+#plotTitle = "Count of Survey123 records in freezer by type"
+#fileName="s123_in_freezer_count_pff"
+#outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+#png(outputPngFileName,height=4,width=6, units='in', res=300)
+#  Salinity, ppm
+#ggplot(survey_envmeas_join %>%
+#         filter(!if_any(c(par1, site_id), is.na) & salinity<40), aes(x=survey_year, y=salinity, fill=survey_year)) + 
+#  geom_boxplot() +
+#  ylab("Salinity ()") +
+#  xlab("Year") +
+#  theme(axis.text.x = element_text(angle = 90), legend.position = "none") +
+#  facet_grid(survey_month ~ .)
+#print(paste("Plot saved as:",outputPngFileName))
+#dev.off()
+```
+
+## Environmental measurements of par1 by Site ID and Month
+```{r}
+plotTitle = "PAR1 by Site and Month"
+fileName="s123_envmeas_par1_site_month"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=16,width=6, units='in', res=300)
+#  par1, μS/cm
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par1, site_id), is.na)), aes(x=site_id, y=as.numeric(par1), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("PAR1 (μmoles/sec/m²)") +
+  xlab("Site ID") +
+  facet_grid(survey_month ~ .) +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurements of par1 by System
+```{r}
+
+plotTitle = "PAR1 by System"
+fileName="s123_envmeas_par1_system"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  par1, μmoles/sec/m²
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par1, site_id), is.na)), aes(x=system_type, y=as.numeric(par1), fill=system_type)) + 
+  geom_boxplot() +
+  ylab("par1 (μmoles/sec/m²)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+## Environmental measurements of par1 by Site ID
+```{r}
+
+plotTitle = "PAR1 by Site"
+fileName="s123_envmeas_par1_site"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  par1, μmoles/sec/m²
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par1, site_id), is.na)), aes(x=site_id, y=as.numeric(par1), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("PAR1 (μmoles/sec/m²)") +
+  xlab("Site ID") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+# ENVIRONMENTAL MEASUREMENTS: PAR2
+Photosynthetically Active Radiation (Channel 2: Down looking), or PAR2, is typically collected with a YSI instrument. PAR2 is recorded in μmoles/sec/m². 
+
+## Percentage of Site IDs with environmental measurements of PAR2
+* add percentage of index site ids with environmental measurements that also have PAR2
+
+```{r}
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
+unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(par2, site_id), is.na)) %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with par2 measurements: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100
+print(paste0("Percentage of site ids with environmental measurements that also have par2: ",round(perc_sids,2),"%"))
+```
+
+## Table of Site IDs with environmental par2 measurements
+```{r}
+# export table with site ids & names
+survey_envmeas_join_siteids <- survey_envmeas_join %>%
+  dplyr::filter(!if_any(c(par2, site_id), is.na)) %>%
+  dplyr::select(site_id, general_location_name) %>%
+  dplyr::distinct() %>%
+  dplyr::arrange(site_id)
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_par2_siteids_table.png"))
+png(outputPngFileName, height=25*nrow(survey_envmeas_join_siteids), width=500*ncol(survey_envmeas_join_siteids))
+grid.table(survey_envmeas_join_siteids, theme=tt3)
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+survey_envmeas_join_siteids
+
+```
+
+## Environmental measurements of par2 quantile
+```{r}
+quantile(survey_envmeas_join$par2, na.rm=TRUE)
+min(survey_envmeas_join$par2, na.rm=TRUE)
+max(survey_envmeas_join$par2, na.rm=TRUE)
+```
+
+
+## Environmental measurements where par2 is greater than 40
+```{r}
+survey_envmeas_join %>%
+         filter(!if_any(c(par2, site_id), is.na) & par2>40)
+```
+
+## Environmental measurements of par2 distribution
+```{r}
+# check distribution
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par2, site_id), is.na)),
+       aes(x=as.numeric(par2))) + 
+  ylab("Density") +
+  xlab("PAR2 (μmoles/sec/m²)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") 
+
+```
+
+## Scatter plot of par2 by depth, month, and system type
+```{r}
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par2, site_id, envmeas_depth), is.na)), 
+       aes(x=survey_month, y=envmeas_depth, color=par2)) +
+  geom_point(size=2) +
+  geom_jitter(width = 0.25, height = 2) +
+  scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
+  scale_y_discrete(name ="Measurement Depth (M)", limits=seq(floor(min(na.omit(survey_envmeas_join$envmeas_depth))),
+                                                 ceiling(max(na.omit(survey_envmeas_join$envmeas_depth))), by = 5)) +
+  labs(color="PAR2 (μmoles/sec/m²)") +
+  facet_grid(system_type ~ .)
+```
+
+## Environmental measurements of par2 by Site ID and Month
+* add note about depth and sampling year/month
+```{r}
+
+#plotTitle = "Count of Survey123 records in freezer by type"
+#fileName="s123_in_freezer_count_pff"
+#outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+#png(outputPngFileName,height=4,width=6, units='in', res=300)
+#  Salinity, ppm
+#ggplot(survey_envmeas_join %>%
+#         filter(!if_any(c(par2, site_id), is.na) & salinity<40), aes(x=survey_year, y=salinity, fill=survey_year)) + 
+#  geom_boxplot() +
+#  ylab("Salinity ()") +
+#  xlab("Year") +
+#  theme(axis.text.x = element_text(angle = 90), legend.position = "none") +
+#  facet_grid(survey_month ~ .)
+#print(paste("Plot saved as:",outputPngFileName))
+#dev.off()
+```
+
+## Environmental measurements of par2 by Site ID and Month
+```{r}
+plotTitle = "PAR2 by Site and Month"
+fileName="s123_envmeas_par2_site_month"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=16,width=6, units='in', res=300)
+#  par2, μS/cm
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par2, site_id), is.na)), aes(x=site_id, y=as.numeric(par2), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("PAR2 (μmoles/sec/m²)") +
+  xlab("Site ID") +
+  facet_grid(survey_month ~ .) +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+```
+
+## Environmental measurements of par2 by System
+```{r}
+
+plotTitle = "PAR2 by System"
+fileName="s123_envmeas_par2_system"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  par2, μmoles/sec/m²
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par2, site_id), is.na)), aes(x=system_type, y=as.numeric(par2), fill=system_type)) + 
+  geom_boxplot() +
+  ylab("PAR2 (μmoles/sec/m²)") +
+  xlab("System") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+## Environmental measurements of par2 by Site ID
+```{r}
+
+plotTitle = "PAR2 by Site"
+fileName="s123_envmeas_par2_site"
+outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+png(outputPngFileName,height=4,width=12, units='in', res=150)
+#  par2, μmoles/sec/m²
+ggplot(survey_envmeas_join %>%
+         filter(!if_any(c(par2, site_id), is.na)), aes(x=site_id, y=as.numeric(par2), fill=site_id)) + 
+  geom_boxplot() +
+  ylab("PAR2 (μmoles/sec/m²)") +
+  xlab("Site ID") +
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+  theme(legend.position = "none") 
+print(paste("Plot saved as:",outputPngFileName))
+dev.off()
+
+knitr::include_graphics(outputPngFileName)
+
+```
+
+# COLLECTION SUMMARY
+
+## Percentage of Site IDs with collections
+```{r}
+
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_collect_sids <- unique(survey_collection_join$site_id)
+unique_collect_sids_water <- survey_collection_join %>%
+  dplyr::filter(!if_any(c(collection_type, site_id), is.na) & collection_type=="water_sample") %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_collect_sids_water)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with water collections: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_collect_sids_water)/length(unique_collect_sids))*100
+print(paste0("Percentage of site ids with collections that are water: ",round(perc_sids,2),"%"))
+
+
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_collect_sids <- unique(survey_collection_join$site_id)
+unique_collect_sids_sed <- survey_collection_join %>%
+  dplyr::filter(!if_any(c(collection_type, site_id), is.na) & collection_type=="sed_sample") %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_collect_sids_sed)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with sediment collections: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_collect_sids_sed)/length(unique_collect_sids))*100
+print(paste0("Percentage of site ids with collections that are sediment: ",round(perc_sids,2),"%"))
+```
+
+# COLLECTIONS: WATER COLLECTION DEPTH
+
+## Percentage of Site IDs with water collection depths
 ```{r}
 unique_survey_sids <- unique(survey_sub$site_id)
 unique_collect_sids <- unique(survey_collection_join$site_id)
 unique_collect_sids_depth <- survey_collection_join %>%
-  dplyr::filter(!is.na(water_depth)) %>%
+  dplyr::filter(!if_any(c(water_depth, site_id), is.na)) %>%
   dplyr::select(site_id) %>%
   dplyr::distinct()
 
@@ -524,12 +1832,11 @@ perc_sids<-(nrow(unique_collect_sids_depth)/length(unique_collect_sids))*100
 print(paste0("Percentage of site ids with collection depths: ",round(perc_sids,2),"%"))
 ```
 
-
-# Collection water_depth unique site ids and names table
+## Table of unique Site IDs with water collection depths
 ```{r}
 # export table with site ids & names
 survey_collection_join_siteids <- survey_collection_join %>%
-  dplyr::filter(!is.na(water_depth)) %>%
+  dplyr::filter(!if_any(c(water_depth, site_id), is.na)) %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
@@ -543,26 +1850,43 @@ survey_collection_join_siteids
 
 ```
 
-# Collection water Depth check
+## Water collection depth quantiles
 ```{r}
 #names(survey_collection_join)
+
+survey_collection_join %>%
+           filter(!if_any(c(water_depth, site_id), is.na) & water_depth>200)
 
 quantile(survey_collection_join$water_depth, na.rm=TRUE)
 min(survey_collection_join$water_depth, na.rm=TRUE)
 max(survey_collection_join$water_depth, na.rm=TRUE)
+```
 
+## Water collection depth distribution
+```{r}
 # check distribution
-ggplot(survey_collection_join %>%
-           filter(water_depth<100),aes(x=as.numeric(water_depth))) + 
+p1<-ggplot(survey_collection_join %>%
+           filter(!if_any(c(water_depth, site_id), is.na)),aes(x=as.numeric(water_depth))) + 
   ylab("Density") +
-  xlab("Depth ()") +
+  xlab("Water Collection Depth (M)") +
   geom_histogram(aes(y=..density..), colour="black", fill="white")+
   geom_density(alpha=.2, fill="#FF6666") 
 
+# check distribution
+p2<-ggplot(survey_collection_join %>%
+           filter(!if_any(c(water_depth, site_id), is.na) & water_depth<200),aes(x=as.numeric(water_depth))) + 
+  ylab("Density") +
+  xlab("Water Collection Depth (M)") +
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="#FF6666") 
+
+grid.arrange(p1, p2, nrow=2)
+rm(p1,p2)
 ```
 
 
-# Collection by site and month
+## Water collection by site and month
+
 ```{r}
 
 #plotTitle = "Count of Survey123 records in freezer by type"
@@ -572,7 +1896,7 @@ ggplot(survey_collection_join %>%
 #png(outputPngFileName,height=4,width=6, units='in', res=300)
 #  Depth, M
 #ggplot(survey_collection_join %>%
-#         filter(water_depth<100), aes(x=survey_year, y=water_depth, fill=survey_year)) + 
+#         filter(!if_any(c(water_depth, site_id), is.na) & water_depth<200), aes(x=survey_year, y=water_depth, fill=survey_year)) + 
 #  geom_boxplot() +
 #  xlab("Depth ()") +
 #  xlab("Year") +
@@ -581,33 +1905,57 @@ ggplot(survey_collection_join %>%
 #print(paste("Plot saved as:",outputPngFileName))
 #dev.off()
 
-plotTitle = "Water collection depth by Site and Month"
-fileName="s123_water_collect_depth_site_month"
+#plotTitle = "Water collection depth by Site and Month"
+#fileName="s123_water_collect_depth_site_month"
+#outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+#png(outputPngFileName,height=16,width=6, units='in', res=300)
+#  Depth, M
+#ggplot(survey_collection_join %>%
+#         filter(water_depth<200), aes(x=site_id, y=as.numeric(water_depth), fill=site_id)) + 
+#  geom_boxplot() +
+#  xlab("Depth ()") +
+#  xlab("Site ID") +
+#  facet_grid(survey_month ~ .) +
+#  ggtitle(plotTitle) +
+#  theme(plot.title = element_text(hjust = 0.5)) +
+#  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+#  theme(legend.position = "none") 
+#print(paste("Plot saved as:",outputPngFileName))
+#dev.off()
+
+#knitr::include_graphics(outputPngFileName)
+```
+
+## Water Collection Depth by System
+```{r}
+plotTitle = "Water Collection Depth by System"
+fileName="s123_water_collect_depth_system"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
-png(outputPngFileName,height=16,width=6, units='in', res=300)
+png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Depth, M
 ggplot(survey_collection_join %>%
-         filter(water_depth<100), aes(x=site_id, y=as.numeric(water_depth), fill=site_id)) + 
+         filter(!if_any(c(water_depth, site_id), is.na) & water_depth<200), aes(x=system_type, y=as.numeric(water_depth), fill=system_type)) + 
   geom_boxplot() +
-  xlab("Depth ()") +
-  xlab("Site ID") +
-  facet_grid(survey_month ~ .) +
+  ylab("Depth (M)") +
+  xlab("System") +
   ggtitle(plotTitle) +
   theme(plot.title = element_text(hjust = 0.5)) +
-  theme(axis.text.x = element_text(angle=50, hjust=1)) +
   theme(legend.position = "none") 
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
 knitr::include_graphics(outputPngFileName)
+```
 
+## Water Collection Depth by Site ID
+```{r}
 plotTitle = "Water collection depth by Site"
 fileName="s123_water_collect_depth_site"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Depth, M
 ggplot(survey_collection_join %>%
-         filter(water_depth<100), aes(x=site_id, y=as.numeric(water_depth), fill=site_id)) + 
+         filter(!if_any(c(water_depth, site_id), is.na) & water_depth<200), aes(x=site_id, y=as.numeric(water_depth), fill=site_id)) + 
   geom_boxplot() +
   ylab("Depth ()") +
   xlab("Site ID") +
@@ -622,12 +1970,16 @@ knitr::include_graphics(outputPngFileName)
 
 ```
 
-# unique site_ids with collections & missing depth_core_collected measurements
+
+# COLLECTIONS: CORE COLLECTION DEPTH
+
+## Percentage of Site IDs with core collection depths
+* total cores collected overall, by site id, and by system
 ```{r}
 unique_survey_sids <- unique(survey_sub$site_id)
 unique_collect_sids <- unique(survey_collection_join$site_id)
 unique_collect_sids_depth <- survey_collection_join %>%
-  dplyr::filter(!is.na(depth_core_collected)) %>%
+  dplyr::filter(!if_any(c(depth_core_collected, site_id), is.na)) %>%
   dplyr::select(site_id) %>%
   dplyr::distinct()
 
@@ -639,11 +1991,11 @@ print(paste0("Percentage of site ids with collection depths: ",round(perc_sids,2
 ```
 
 
-# Collection depth_core_collected unique site ids and names table
+## Table of unique Site IDs with core collection depths
 ```{r}
 # export table with site ids & names
 survey_collection_join_siteids <- survey_collection_join %>%
-  dplyr::filter(!is.na(depth_core_collected)) %>%
+  dplyr::filter(!if_any(c(depth_core_collected, site_id), is.na)) %>%
   dplyr::select(site_id, general_location_name) %>%
   dplyr::distinct() %>%
   dplyr::arrange(site_id)
@@ -657,7 +2009,7 @@ survey_collection_join_siteids
 
 ```
 
-# Collection Depth check
+## Core collection depth distribution
 ```{r}
 #names(survey_collection_join)
 
@@ -667,9 +2019,9 @@ max(survey_collection_join$depth_core_collected, na.rm=TRUE)
 
 # check distribution
 ggplot(survey_collection_join %>%
-           filter(depth_core_collected<100),aes(x=as.numeric(depth_core_collected))) + 
+           filter(!if_any(c(depth_core_collected, site_id), is.na)),aes(x=as.numeric(depth_core_collected))) + 
   ylab("Density") +
-  xlab("Depth ()") +
+  xlab("Core Collection Depth (M)") +
   geom_histogram(aes(y=..density..), colour="black", fill="white")+
   geom_density(alpha=.2, fill="#FF6666") 
 
@@ -677,7 +2029,7 @@ ggplot(survey_collection_join %>%
 
 
 
-# Collection by site and month
+## Core collection by site and month
 ```{r}
 
 #plotTitle = "Count of Survey123 records in freezer by type"
@@ -687,7 +2039,7 @@ ggplot(survey_collection_join %>%
 #png(outputPngFileName,height=4,width=6, units='in', res=300)
 #  Depth, M
 #ggplot(survey_collection_join %>%
-#         filter(depth_core_collected<100), aes(x=survey_year, y=depth_core_collected, fill=survey_year)) + 
+#         filter(!if_any(c(depth_core_collected, site_id), is.na)), aes(x=survey_year, y=depth_core_collected, fill=survey_year)) + 
 #  geom_boxplot() +
 #  xlab("Depth ()") +
 #  xlab("Year") +
@@ -696,26 +2048,52 @@ ggplot(survey_collection_join %>%
 #print(paste("Plot saved as:",outputPngFileName))
 #dev.off()
 
-plotTitle = "Sediment collection depth by Site and Month"
-fileName="s123_sediment_collect_depth_site_month"
+#plotTitle = "Sediment collection depth by Site and Month"
+#fileName="s123_sediment_collect_depth_site_month"
+#outputPngFileName <- paste0(outputPngFolder,fileName,".png")
+#png(outputPngFileName,height=16,width=6, units='in', res=300)
+#  Depth, M
+#ggplot(survey_collection_join %>%
+#         filter(!if_any(c(depth_core_collected, site_id), is.na)), aes(x=site_id, y=as.numeric(depth_core_collected), fill=site_id)) + 
+#  geom_boxplot() +
+#  xlab("Depth ()") +
+#  xlab("Site ID") +
+#  facet_grid(survey_month ~ .) +
+#  ggtitle(plotTitle) +
+#  theme(plot.title = element_text(hjust = 0.5)) +
+#  theme(axis.text.x = element_text(angle=50, hjust=1)) +
+#  theme(legend.position = "none") 
+#print(paste("Plot saved as:",outputPngFileName))
+#dev.off()
+
+#knitr::include_graphics(outputPngFileName)
+```
+
+## Sediment Collection Depth by System
+```{r}
+plotTitle = "Sediment Collection Depth by System"
+fileName="s123_sediment_collect_system"
 outputPngFileName <- paste0(outputPngFolder,fileName,".png")
-png(outputPngFileName,height=16,width=6, units='in', res=300)
+png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Depth, M
 ggplot(survey_collection_join %>%
-         filter(depth_core_collected<100), aes(x=site_id, y=as.numeric(depth_core_collected), fill=site_id)) + 
+         filter(!if_any(c(depth_core_collected, site_id), is.na)), 
+       aes(x=system_type, y=as.numeric(depth_core_collected), fill=system_type)) +
   geom_boxplot() +
-  xlab("Depth ()") +
-  xlab("Site ID") +
-  facet_grid(survey_month ~ .) +
+  ylab("Depth (M)") +
+  xlab("System") +
   ggtitle(plotTitle) +
   theme(plot.title = element_text(hjust = 0.5)) +
-  theme(axis.text.x = element_text(angle=50, hjust=1)) +
   theme(legend.position = "none") 
 print(paste("Plot saved as:",outputPngFileName))
 dev.off()
 
 knitr::include_graphics(outputPngFileName)
 
+```
+
+## Sediment Collection Depth by Site ID
+```{r}
 
 plotTitle = "Sediment collection depth by Site"
 fileName="s123_sediment_collect_depth_site"
@@ -723,7 +2101,7 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Depth, M
 ggplot(survey_collection_join %>%
-         filter(depth_core_collected<100), aes(x=site_id, y=as.numeric(depth_core_collected), fill=site_id)) + 
+         filter(!if_any(c(depth_core_collected, site_id), is.na)), aes(x=site_id, y=as.numeric(depth_core_collected), fill=site_id)) + 
   geom_boxplot() +
   ylab("Depth ()") +
   xlab("Site ID") +
@@ -737,6 +2115,32 @@ dev.off()
 knitr::include_graphics(outputPngFileName)
 
 ```
+
+# FILTER SUMMARY
+
+## unique site_ids with collections & missing depth_core_collected measurements
+* total filters per (siteid, system), average filters per (siteid, system) filter type by (siteid, system)
+* total cores per (siteid, system), average cores per (siteid, system)
+* total cores collected overall, by site id, and by system
+* total counts of filter types
+* percentage of filters that have been prefiltered
+
+```{r}
+unique_survey_sids <- unique(survey_sub$site_id)
+unique_filters_sids <- unique(clean_filter_join$site_id)
+unique_filters_sids_depth <- clean_filter_join %>%
+  dplyr::filter(!if_any(c(depth_core_collected, site_id), is.na)) %>%
+  dplyr::select(site_id) %>%
+  dplyr::distinct()
+
+perc_sids<-(nrow(unique_collect_sids_depth)/length(unique_survey_sids))*100
+print(paste0("Percentage of site ids with core collections: ",round(perc_sids,2),"%"))
+
+perc_sids<-(nrow(unique_collect_sids_depth)/length(unique_collect_sids))*100
+print(paste0("Percentage of site ids with collection depths: ",round(perc_sids,2),"%"))
+```
+
+
 
 ```{r}
 # write full join (no clean) to file
