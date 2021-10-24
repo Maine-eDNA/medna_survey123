@@ -106,7 +106,8 @@ class DownloadCleanJoinData:
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
                  survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
-                 clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME):
+                 clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME,
+                 clean_subcore_join_filename=settings.CLEAN_SUBCORE_JOIN_FILENAME):
         # overwrite boolean
         self.overwrite = overwrite
         # input dir
@@ -147,6 +148,7 @@ class DownloadCleanJoinData:
         self.survey_envmeas_join_filename = survey_envmeas_join_filename
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
+        self.clean_subcore_join_filename = clean_subcore_join_filename
         export_fmt = ['File Geodatabase', 'Shapefile', 'CSV', 'DF']
         name_fmt = ['FGDB', 'SHP', 'CSV', 'DF']
         fmt_df = pd.DataFrame(list(zip(export_fmt, name_fmt)), columns=['export_fmt', 'name_fmt'])
@@ -443,15 +445,22 @@ class DownloadCleanJoinData:
                                                     'Was Filtered',
                                                     'Water Collection Notes',
                                                     'Core DateTime Start',
+                                                    'Core DateTime End',
                                                     'Core Label',
                                                     'Core Control',
                                                     'Core Method',
+                                                    'Other Core Method',
                                                     'Depth Core Collected',
                                                     'Length of Core',
                                                     'Corer Diameter',
                                                     'Core Notes',
                                                     'Subcores Taken',
+                                                    'Subcore DateTime Start',
+                                                    'Subcore DateTime End',
+                                                    'Sub-Corer First Name',
+                                                    'Sub-Corer Last Name',
                                                     'Sub-Core Method',
+                                                    'Other Sub-Core Method',
                                                     'Min Subcore Barcode',
                                                     'Max Subcore Barcode',
                                                     'Number of Sub-Cores',
@@ -473,16 +482,23 @@ class DownloadCleanJoinData:
                                                                     'Was Filtered': 'was_filtered',
                                                                     'Water Vessel Label': 'water_vessel_label',
                                                                     'Water Collection Notes': 'water_collect_notes',
-                                                                    'Core DateTime Start': 'core_start_date',
+                                                                    'Core DateTime Start': 'core_datetime_start',
+                                                                    'Core DateTime End': 'core_datetime_end',
                                                                     'Core Label': 'core_label',
                                                                     'Core Control': 'core_control',
                                                                     'Core Method': 'core_method',
+                                                                    'Other Core Method': 'core_method_other',
                                                                     'Depth Core Collected': 'depth_core_collected',
                                                                     'Length of Core': 'core_length',
                                                                     'Corer Diameter': 'core_diameter',
                                                                     'Core Notes': 'core_notes',
                                                                     'Subcores Taken': 'subcores_taken',
+                                                                    'Subcore DateTime Start': 'subcore_datetime_start',
+                                                                    'Subcore DateTime End': 'subcore_datetime_end',
+                                                                    'Sub-Corer First Name': 'subcore_fname',
+                                                                    'Sub-Corer Last Name': 'subcore_lname',
                                                                     'Sub-Core Method': 'subcore_method',
+                                                                    'Other Sub-Core Method': 'subcore_method_other',
                                                                     'Min Subcore Barcode': 'min_subcore_barcode',
                                                                     'Max Subcore Barcode': 'max_subcore_barcode',
                                                                     'Number of Sub-Cores': 'number_subcores',
@@ -491,6 +507,7 @@ class DownloadCleanJoinData:
                                                                     'Sub-Core Consistency Layer': 'subcore_consistency_layer',
                                                                     'Purpose of Other Cores': 'purpose_other_cores',
                                                                     'CreationDate': 'collection_create_date'})
+
             api_logger.info("[END] subset_collection_dataset")
             return rep_collection_sub
         except Exception as err:
@@ -590,7 +607,7 @@ class DownloadCleanJoinData:
             output_file = self.main_output_dir + self.survey_envmeas_join_filename + ".csv"
             survey_envmeas_join_output.to_csv(output_file, encoding='utf-8')
 
-            # join eDNA_Sampling_v13_sub to rep_collection
+            # join eDNA_Sampling_v13_sub to rep_collection & split into subcore_sub
             survey_collection_join = pd.merge(rep_collection_sub, survey_sub, how='left',
                                               left_on='collection_ParentGlobalID', right_on='survey_GlobalID')
 
@@ -611,7 +628,10 @@ class DownloadCleanJoinData:
                                                                            'core_control', 'core_method',
                                                                            'depth_core_collected', 'core_length',
                                                                            'core_diameter', 'core_notes',
-                                                                           'subcores_taken', 'subcore_method',
+                                                                           'subcore_datetime_start',
+                                                                           'subcore_datetime_end',
+                                                                           'subcore_fname', 'subcore_lname',
+                                                                           'subcore_method', 'subcore_method_other',
                                                                            'min_subcore_barcode', 'max_subcore_barcode',
                                                                            'number_subcores', 'subcore_length',
                                                                            'subcore_diameter',
@@ -622,6 +642,7 @@ class DownloadCleanJoinData:
                                                                            'collection_create_date',
                                                                            'lat_manual', 'long_manual',
                                                                            'gps_cap_lat', 'gps_cap_long']].copy()
+
             survey_collection_join_output['survey_date'] = pd.to_datetime(survey_collection_join_output.survey_date)
             survey_collection_join_output = survey_collection_join_output.sort_values(by=['survey_date', 'survey_GlobalID']).reset_index(drop=True)
 
@@ -635,10 +656,66 @@ class DownloadCleanJoinData:
             survey_collection_join_output.dropna(subset=['collection_type', 'water_vessel_label', 'core_label'],
                                                  how='all', inplace=True)
 
+            # subcore collection + sample + survey join
+            subcore_sub = survey_collection_join_output[(survey_collection_join_output['collection_type'] == 'sed_sample') &
+                                                        (survey_collection_join_output['subcores_taken'] == 'yes')]
+
+            survey_subcore_join = subcore_sub[['survey_GlobalID', 'survey_date',
+                                               'survey_month', 'survey_year', 'projects',
+                                               'supervisor', 'username',
+                                               'recorder_first_name', 'recorder_last_name',
+                                               'system_type', 'site_id', 'other_site_id',
+                                               'general_location_name',
+                                               'subcore_datetime_start', 'subcore_datetime_end',
+                                               'subcore_fname', 'subcore_lname',
+                                               'subcore_method', 'subcore_method_other',
+                                               'min_subcore_barcode', 'max_subcore_barcode',
+                                               'number_subcores', 'subcore_length',
+                                               'subcore_diameter', 'subcore_consistency_layer',
+                                               'purpose_other_cores',
+                                               'collection_GlobalID',
+                                               'survey_edit_date', 'survey_create_date',
+                                               'collection_create_date',
+                                               'lat_manual', 'long_manual',
+                                               'gps_cap_lat', 'gps_cap_long']].copy()
+
+            clean_subcore_join = pd.DataFrame(survey_subcore_join.values.repeat(survey_subcore_join.number_subcores, axis=0),
+                                              columns=survey_subcore_join.columns,
+                                              ).astype(survey_subcore_join.dtypes)
+
+            clean_subcore_join['sample_global_id'] = clean_subcore_join['collection_GlobalID'] + '-SC' + clean_subcore_join.index.astype(str)
+
+            survey_collection_join_output = survey_collection_join_output[['survey_GlobalID', 'survey_date',
+                                                                           'survey_month', 'survey_year', 'projects',
+                                                                           'supervisor', 'username',
+                                                                           'recorder_first_name', 'recorder_last_name',
+                                                                           'system_type', 'site_id', 'other_site_id',
+                                                                           'general_location_name',
+                                                                           'collection_type', 'water_collect_date',
+                                                                           'water_control', 'water_control_type',
+                                                                           'water_depth', 'water_vessel_material',
+                                                                           'water_vessel_color', 'was_filtered',
+                                                                           'water_vessel_label', 'water_collect_notes',
+                                                                           'core_start_date', 'core_label',
+                                                                           'core_control', 'core_method',
+                                                                           'depth_core_collected', 'core_length',
+                                                                           'core_diameter', 'core_notes',
+                                                                           'purpose_other_cores',
+                                                                           'collection_GlobalID',
+                                                                           'survey_edit_date', 'survey_create_date',
+                                                                           'collection_create_date',
+                                                                           'lat_manual', 'long_manual',
+                                                                           'gps_cap_lat', 'gps_cap_long']].copy()
+
             # write survey_collection_join to csv
             api_logger.info("join_data: To CSV " + self.survey_collection_join_filename)
             output_file = self.main_output_dir + self.survey_collection_join_filename + ".csv"
             survey_collection_join_output.to_csv(output_file, encoding='utf-8')
+
+            # write clean_subcore_join to csv
+            api_logger.info("join_data: To CSV " + self.clean_subcore_join_filename)
+            output_file = self.main_output_dir + self.clean_subcore_join_filename + ".csv"
+            clean_subcore_join.to_csv(output_file, encoding='utf-8')
 
             # filter + sample + survey join
             ss_filter_join = pd.merge(rep_filter_sub, survey_collection_join, how='left',
@@ -688,7 +765,8 @@ class UploadData:
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
                  survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
-                 clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME):
+                 clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME,
+                 clean_subcore_join_filename=settings.CLEAN_SUBCORE_JOIN_FILENAME):
         self.gdrive_private_key = gdrive_private_key
         self.target_spreadsheet_name = target_spreadsheet_name
         self.main_output_dir = main_output_dir
@@ -696,6 +774,7 @@ class UploadData:
         self.survey_envmeas_join_filename = survey_envmeas_join_filename
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
+        self.clean_subcore_join_filename = clean_subcore_join_filename
 
     def upload_data(self):
         # https://medium.com/craftsmenltd/from-csv-to-google-sheet-using-python-ef097cb014f9
@@ -708,6 +787,7 @@ class UploadData:
             survey_envmeas_join_filename = self.survey_envmeas_join_filename
             survey_collection_join_filename = self.survey_collection_join_filename
             clean_filter_join_filename = self.clean_filter_join_filename
+            clean_subcore_join_filename = self.clean_subcore_join_filename
 
             scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
                      "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
@@ -720,11 +800,12 @@ class UploadData:
             survey_envmeas_join = main_output_dir + survey_envmeas_join_filename + ".csv"
             survey_collection_join = main_output_dir + survey_collection_join_filename + ".csv"
             clean_filter = main_output_dir + clean_filter_join_filename + ".csv"
+            clean_subcore = main_output_dir + clean_subcore_join_filename + ".csv"
 
             # name of target spreadsheet
             spreadsheet = client.open(target_spreadsheet_name)
             worksheet_list = spreadsheet.worksheets()
-            upload_list = [survey_sub, survey_envmeas_join, survey_collection_join, clean_filter]
+            upload_list = [survey_sub, survey_envmeas_join, survey_collection_join, clean_filter, clean_subcore]
 
             # the filename of each CSV will be used to name each sheet within the target spreadsheet.
             for upload in upload_list:
