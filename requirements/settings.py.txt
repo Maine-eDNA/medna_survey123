@@ -53,6 +53,7 @@ SURVEY_SUB_FILENAME = "eDNA_Sampling_v14_sub"
 SURVEY_ENVMEAS_JOIN_FILENAME = "survey_envmeas_join"
 SURVEY_COLLECTION_JOIN_FILENAME = "survey_collection_join"
 CLEAN_FILTER_JOIN_FILENAME = "clean_filter_join"
+CLEAN_SUBCORE_JOIN_FILENAME = "clean_subcore_join"
 
 ########################################
 # SURVEY123 BACKUP DIRECTORIES         #
