@@ -325,6 +325,18 @@ class DownloadCleanJoinData:
             # if the site_id was other, change system type to other
             survey_sub.loc[survey_sub['site_id'].str.lower() == 'other', 'system_type'] = 'other'
 
+            # if lat_manual or long_manual are NaN, blank, or 0, replace contents of cell with
+            # gps_cap_lat or gps_cap_long
+            # if NaN
+            survey_sub['lat_manual'].fillna(survey_sub['gps_cap_lat'], inplace=True)
+            survey_sub['long_manual'].fillna(survey_sub['gps_cap_long'], inplace=True)
+            # if blank
+            survey_sub.loc[survey_sub['lat_manual'] == '', 'lat_manual'] = survey_sub['gps_cap_lat']
+            survey_sub.loc[survey_sub['long_manual'] == '', 'long_manual'] = survey_sub['gps_cap_long']
+            # if 0
+            survey_sub.loc[survey_sub['lat_manual'] == 0, 'lat_manual'] = survey_sub['gps_cap_lat']
+            survey_sub.loc[survey_sub['long_manual'] == 0, 'long_manual'] = survey_sub['gps_cap_long']
+
             # when making a copy(), it generally has to be specified or the two copies will
             # be linked (changes in one will affect the other). Also raises SettingwithCopyWarning if not present.
             survey_sub_output = survey_sub.copy()
