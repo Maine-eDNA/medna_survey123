@@ -9,8 +9,7 @@ Prepared by: Melissa Kimble
 
 This notebook:
 1. Loads Survey123 data
-2. Joins tables based on primary and foreign keys
-3. Generates "long" tables by melting repeats
+2. Generates SiteID summaries
 
 * add in all YSI sonde measurements
 * eg par1, par2, turbidity, do, conductivity, water temp
@@ -31,7 +30,7 @@ This notebook:
 # Load and Install Libraries
 source("medna_survey123.R")
 ## Check libraries & install
-LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr", "gridExtra", "sf")
+LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr", "gridExtra", "sf", "googlesheets4")
 install_or_load_pack(LibraryList)
 overwrite = TRUE
 inputFolder = "../data/02_Working/PyOutput/"
@@ -42,34 +41,37 @@ outputPngFolder = "../figures/rcode/"
 
 todaysDateFn = format(Sys.Date(), "%Y%m%d")
 
+WGS84_SRID = 4326
+
 tt3 <- ttheme_default(core=list(fg_params=list(hjust=0, x=0.1)),
                       rowhead=list(fg_params=list(hjust=0, x=0)))
 ```
 
 # LOAD SHAPFILES
-
 ```{r}
 InputShpFolder = "G:/My Drive/Dissertation/01_Data"
 
+# Watershed Boundary Dataset (WBD), National Hydrography Dataset (NHD), United States Geological Survey (USGS)
 WBDHU8SHP = paste0(InputShpFolder,"/02_Working/Hydrography/USGS_NHD/20200615/WBDHU8_MENH_NEaq/WBDHU8_MENH_NEA.shp")
 WBD_spdf<-sf::st_read(WBDHU8SHP)
 #names(WBD_spdf)
+
+# United States Census state admin boundaries 2021
 UScensusSHP = paste0(InputShpFolder,"/01_Original/Census/2021/tl_2021_us_state/tl_2021_us_state.shp")
 US_census_spdf<-sf::st_read(UScensusSHP)
 #names(US_coast_spdf)
 
-#UScensusSHP = paste0(InputShpFolder,"/01_Original/Census/2021/tl_2021_us_state/tl_2021_us_state.shp")
-#US_census_spdf<-sf::st_read(UScensusSHP)
-#names(US_coast_spdf)
-
+# NaturalEarth 10m North American lakes
 lakesSHP = paste0(InputShpFolder,"/01_Original/NaturalEarth/ne_10m_lakes_north_america/ne_10m_lakes_north_america.shp")
 lakes_spdf<-sf::st_read(lakesSHP)
 #names(lakes_spdf)
 
+# NaturalEarth 10m North American rivers
 riversSHP = paste0(InputShpFolder,"/01_Original/NaturalEarth/ne_10m_rivers_north_america/ne_10m_rivers_north_america.shp")
 rivers_spdf<-sf::st_read(riversSHP)
 #names(lakes_spdf)
 
+# NaturalEarth 10m admin countries boundary
 countriesSHP = paste0(InputShpFolder,"/01_Original/NaturalEarth/ne_10m_admin_0_countries/ne_10m_admin_0_countries.shp")
 countries_spdf<-sf::st_read(countriesSHP)
 #names(countries_spdf)
@@ -77,14 +79,13 @@ countries_spdf<-sf::st_read(countriesSHP)
 # place all data in same coordinate system
 US_census_spdf=st_transform(US_census_spdf, crs=st_crs(WBD_spdf))
 
-
 #US_census_spdf$NAME
 
 boundingbox<-st_bbox(US_census_spdf %>%
           filter(NAME == "Maine" | NAME == "New Hampshire" | NAME == "Massachusetts"))
 ```
 
-## Watersheds
+## Watersheds map
 ```{r}
 #WBD_spdf_tidy <- broom::tidy(WBD_spdf, region="region_lab")
 #ME_coast_spdf_tidy <- broom::tidy(ME_coast_spdf)
@@ -93,7 +94,7 @@ boundingbox<-st_bbox(US_census_spdf %>%
 plotTitle = "Maine-eDNA Watersheds"
 
 # save plot in png format
-outputPngFileName <- file.path(outputPngFolder,paste0("s123_watersheds.png"))
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_watersheds_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
 
 ggplot() + 
@@ -120,7 +121,97 @@ knitr::include_graphics(outputPngFileName)
 #rm(WBD_spdf,ME_coast_spdf)
 ```
 
-## Load CSVs from Survey123
+
+# LOAD GSHEETs
+```{r}
+site_ids_gsheet <- read_sheet("https://docs.google.com/spreadsheets/d/1IVn6Ui80VZZrFjjRCy6FaOwh_5fR9ZJj4OxNypYBduc/edit?usp=sharing")
+```
+## Column names and number of rows
+```{r}
+site_ids_spdf <- site_ids_gsheet %>%
+  dplyr::select(SiteID, `General Location Name`, `Intended Purpose`, `Latitude`, `Longitude`, `System Type`, `Region Code`, 
+         `Survey123 Filter Count`, `Survey123 Core Count`) %>%
+  sf::st_as_sf(.,coords=c('Longitude', 'Latitude'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
+  dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
+  tidyr::separate(geom, into=c("lat","lon"),sep=",") %>% # reseparate out lat, long
+  dplyr::rename(site_id = SiteID) %>%
+  dplyr::rename(general_location_name = `General Location Name`) %>%
+  dplyr::rename(projects = `Intended Purpose`) %>%
+  dplyr::rename(system_type = `System Type`) %>%
+  dplyr::rename(region_code = `Region Code`) %>%
+  dplyr::rename(s123_filter_count = `Survey123 Filter Count`) %>%
+  dplyr::rename(s123_core_count = `Survey123 Core Count`) 
+# displays column names & number of rows - 65
+nrow(site_ids_spdf);names(site_ids_spdf)
+
+boundingbox_sids<-st_bbox(site_ids_spdf)
+```
+
+## SiteIDs map
+```{r}
+#WBD_spdf_tidy <- broom::tidy(WBD_spdf, region="region_lab")
+#ME_coast_spdf_tidy <- broom::tidy(ME_coast_spdf)
+
+#names(WBD_spdf_tidy);names(ME_coast_spdf_tidy)
+plotTitle = "Maine-eDNA Sites"
+
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_sids_map.png"))
+png(outputPngFileName,height=6,width=9, units='in', res=300)
+
+ggplot() + 
+  geom_sf(data=countries_spdf, color="grey", fill="antiquewhite") +
+  geom_sf(data=WBD_spdf, aes(fill = region_cod), alpha=0.1) +
+  geom_sf(data=lakes_spdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=rivers_spdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=site_ids_spdf, aes(fill=region_code)) +
+  geom_text(data=site_ids_spdf,aes(x=lon, y=lat, label=site_id),
+            color = "black", fontface = "bold", size=2, check_overlap = FALSE) +
+  coord_sf(xlim = c(boundingbox$xmin[[1]], boundingbox$xmax[[1]]*0.98), 
+           ylim = c(boundingbox$ymin[[1]], boundingbox$ymax[[1]]*1.02), expand = FALSE) + 
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue")) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+dev.off()
+knitr::include_graphics(outputPngFileName)
+
+plotTitle = "Maine-eDNA Sites"
+
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_sids_zoom_map.png"))
+png(outputPngFileName,height=6,width=9, units='in', res=300)
+
+ggplot() + 
+  geom_sf(data=countries_spdf, color="grey", fill="antiquewhite") +
+  geom_sf(data=WBD_spdf, aes(fill = region_cod), alpha=0.1) +
+  geom_sf(data=lakes_spdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=rivers_spdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=site_ids_spdf, aes(fill=region_code),pch=21, color="black") +
+  geom_text(data=site_ids_spdf,aes(x=lon, y=lat, label=site_id),
+    color = "black", fontface = "bold", size=2, check_overlap = FALSE) +
+  coord_sf(xlim = c(boundingbox_sids$xmin[[1]]*1.01, boundingbox_sids$xmax[[1]]*0.99), 
+           ylim = c(boundingbox_sids$ymin[[1]]*0.99, boundingbox_sids$ymax[[1]]*1.01), expand = FALSE) + 
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue")) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+dev.off()
+knitr::include_graphics(outputPngFileName)
+
+
+#rm(WBD_spdf,ME_coast_spdf)
+```
+
+# LOAD SURVEY123 CSVs
 ```{r}
 #load data
 survey_sub <- data.table::fread(paste0(inputFolder,'eDNA_Sampling_v14_sub.csv'))
@@ -128,6 +219,7 @@ survey_crew <- data.table::fread(paste0(originalFolder,'rep_crew_1.csv'))
 survey_envmeas_join <- data.table::fread(paste0(inputFolder,'survey_envmeas_join.csv'))
 survey_collection_join <- data.table::fread(paste0(inputFolder,'survey_collection_join.csv'))
 clean_filter_join <- data.table::fread(paste0(inputFolder,'clean_filter_join.csv'))
+clean_subcore_join <- data.table::fread(paste0(inputFolder,'clean_subcore_join.csv'))
 ```
 
 ## Column names and number of rows
@@ -137,9 +229,11 @@ nrow(survey_sub);names(survey_sub)
 nrow(survey_envmeas_join);names(survey_envmeas_join)
 nrow(survey_collection_join);names(survey_collection_join)
 nrow(clean_filter_join);names(clean_filter_join)
+nrow(clean_subcore_join);names(clean_subcore_join)
 # Head displays the first 6 rows of the data.table
 #head(survey_sub);head(survey_envmeas_join);head(survey_collection_join);head(clean_filter_join);head(clean_filter_join)
 ```
+
 # SURVEY SUMMARY 
 
 ## Count of empty or NA site_ids
@@ -153,21 +247,8 @@ nrow(clean_filter_join);names(clean_filter_join)
 nrow(survey_sub[survey_sub$site_id == "" | is.na(survey_sub$site_id),])
 
 ```
-# CREW SUMMARY
 
-"survey_GlobalID"       "survey_date"           "survey_month"         
-"survey_year"           "projects"              "supervisor"            "username"             
-"recorder_first_name"   "recorder_last_name"    "system_type"           "site_id"              
-"other_site_id"         "general_location_name" "envmeas_date"          "envmeas_depth"        
-"envmeas_instrument"    "ctd_filename"          "ctd_notes"             "ysi_filename"         
-"ysi_model"             "ysi_serial_number"     "ysi_notes"             "secchi_depth"         
-"secchi_notes"          "niskin_number"         "niskin_notes"          "other_instruments"    
-"env_measurements"      "flow_rate"             "water_temp"            "salinity"             
-"ph"                    "par1"                  "par2"                  "turbidity"            
-"conductivity"          "do"                    "pheophytin"            "chla"                 
-"no3no2"                "no2"                   "nh4"                   "phosphate"            
-"bottom_substrate"      "lab_date"              "envmeas_notes"         "envmeas_GlobalID"     
-"survey_edit_date"      "survey_create_date"    "envmeas_create_date"  
+# CREW SUMMARY
 
 ## Percentage of survey records with associated crew information
 ```{r}
@@ -182,6 +263,20 @@ print(paste0("Percentage of survey records with crew information: ",round(perc_g
 ```
 
 # ENVIRONMENTAL MEASUREMENTS SUMMARY
+
+"survey_GlobalID"       "survey_date"           "survey_month"         
+"survey_year"           "projects"              "supervisor"            "username"             
+"recorder_first_name"   "recorder_last_name"    "system_type"           "site_id"              
+"other_site_id"         "general_location_name" "envmeas_date"          "envmeas_depth"        
+"envmeas_instrument"    "ctd_filename"          "ctd_notes"             "ysi_filename"         
+"ysi_model"             "ysi_serial_number"     "ysi_notes"             "secchi_depth"         
+"secchi_notes"          "niskin_number"         "niskin_notes"          "other_instruments"    
+"env_measurements"      "flow_rate"             "water_temp"            "salinity"             
+"ph"                    "par1"                  "par2"                  "turbidity"            
+"conductivity"          "do"                    "pheophytin"            "chla"                 
+"no3no2"                "no2"                   "nh4"                   "phosphate"            
+"bottom_substrate"      "lab_date"              "envmeas_notes"         "envmeas_GlobalID"     
+"survey_edit_date"      "survey_create_date"    "envmeas_create_date" 
 
 unique survey records & missing env measurements
 * add dict for index sites = site ids
@@ -204,6 +299,7 @@ unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
 perc_sids<-(length(unique_envmeas_sids)/length(unique_survey_sids))*100
 print(paste0("Percentage of site ids with environmental measurements: ",round(perc_sids,2),"%"))
 ```
+
 ## Table of unique Site IDs with environmental measurements
 ```{r}
 # export table with site ids & names
@@ -373,13 +469,13 @@ rm(survey_envmeas_join_siteids)
 ```{r}
 
 survey_envmeas_join %>%
-  filter(!if_any(c(envmeas_depth, site_id), is.na) & envmeas_depth > 50)
+  dplyr::filter(!if_any(c(envmeas_depth, site_id), is.na) & envmeas_depth > 50)
 ```
 
 ## Environmental measurements where System Type is Stream
 ```{r}
 survey_envmeas_join %>%
-  filter(!if_any(c(envmeas_depth, site_id), is.na) & system_type=="S")
+  dplyr::filter(!if_any(c(envmeas_depth, site_id), is.na) & system_type=="S")
 ```
 
 ## Environmental measurement Depth quantiles
@@ -537,7 +633,8 @@ max(survey_envmeas_join$water_temp, na.rm=TRUE)
 ## Environmental measurement where water temperature is greater than 50
 ```{r}
 survey_envmeas_join %>%
-  filter(!if_any(c(water_temp, site_id), is.na) & water_temp>50)
+    dplyr::select(survey_date, site_id, general_location_name, water_temp, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+  dplyr::filter(!if_any(c(water_temp, site_id), is.na) & water_temp>50)
 ```
 
 ## Environmental measurement of Temperature distribution
@@ -589,7 +686,7 @@ rm(p1,p2)
 ## Scatter plot of water temperature by depth, month, and system type
 ```{r}
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(water_temp, site_id, envmeas_depth), is.na) & water_temp<50), 
+         dplyr::filter(!if_any(c(water_temp, site_id, envmeas_depth), is.na) & water_temp<50), 
        aes(x=survey_month, y=envmeas_depth, color=water_temp)) +
   geom_point(size=2) +
   geom_jitter(width = 0.25, height = 2) +
@@ -629,7 +726,8 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=16,width=6, units='in', res=300)
 #  Temperature, C
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
+         dplyr::filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), 
+       aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
   geom_boxplot() +
   ylab("Temperature (C)") +
   xlab("Site ID") +
@@ -652,7 +750,8 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Temperature, C
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), aes(x=system_type, y=as.numeric(water_temp), fill=system_type)) + 
+         dplyr::filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), 
+       aes(x=system_type, y=as.numeric(water_temp), fill=system_type)) + 
   geom_boxplot() +
   ylab("Temperature (C)") +
   xlab("System") +
@@ -673,7 +772,8 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Temperature, C
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
+         dplyr::filter(!if_any(c(water_temp, site_id), is.na) & water_temp<50), 
+       aes(x=site_id, y=as.numeric(water_temp), fill=site_id)) + 
   geom_boxplot() +
   ylab("Temperature (C)") +
   xlab("Site ID") +
@@ -734,10 +834,12 @@ quantile(survey_envmeas_join$salinity, na.rm=TRUE)
 min(survey_envmeas_join$salinity, na.rm=TRUE)
 max(survey_envmeas_join$salinity, na.rm=TRUE)
 ```
+
 ## Environmental measurements where turbidity is greater than 40
 ```{r}
 survey_envmeas_join %>%
-         filter(!if_any(c(salinity, site_id), is.na) & salinity>40)
+    dplyr::select(survey_date, site_id, general_location_name, salinity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+         dplyr::filter(!if_any(c(salinity, site_id), is.na) & salinity>40)
 ```
 
 ## Environmental measurement of Salinity distribution
@@ -745,7 +847,8 @@ survey_envmeas_join %>%
 plotTitle = "Distribution of Salinity"
 # check distribution
 p1<-ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(salinity, site_id), is.na)),aes(x=as.numeric(salinity))) + 
+         dplyr::filter(!if_any(c(salinity, site_id), is.na)),
+         aes(x=as.numeric(salinity))) + 
   ggtitle(plotTitle) +
   ylab("Density") +
   xlab("Practical Salinity Unit (PSU)") +
@@ -756,7 +859,8 @@ p1<-ggplot(survey_envmeas_join %>%
 plotTitle = "Distribution of Salinity (truncated)"
 # check distribution
 p2<-ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(salinity, site_id), is.na) & salinity<50),aes(x=as.numeric(salinity))) + 
+         dplyr::filter(!if_any(c(salinity, site_id), is.na) & salinity<50),
+         aes(x=as.numeric(salinity))) + 
   ggtitle(plotTitle) +
   ylab("Density") +
   xlab("Practical Salinity Unit (PSU)") +
@@ -773,7 +877,7 @@ rm(p1,p2)
 ## Scatter plot of salinity by depth, month, and system type
 ```{r}
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(salinity, site_id, envmeas_depth), is.na) & salinity<50), 
+         dplyr::filter(!if_any(c(salinity, site_id, envmeas_depth), is.na) & salinity<50), 
        aes(x=survey_month, y=envmeas_depth, color=salinity)) +
   geom_point(size=2) +
   geom_jitter(width = 0.25, height = 2) +
@@ -813,7 +917,7 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=16,width=6, units='in', res=300)
 #  Salinity, ppm
 ggplot(survey_envmeas_join  %>%
-         filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
+         dplyr::filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
        aes(x=site_id, y=as.numeric(salinity), fill=site_id)) + 
   geom_boxplot() +
   ylab("Practical Salinity Unit (PSU)") +
@@ -838,7 +942,7 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Salinity, ppm
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
+         dplyr::filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
        aes(x=system_type, y=as.numeric(salinity), fill=system_type)) + 
   geom_boxplot() +
   ylab("Practical Salinity Unit (PSU)") +
@@ -861,7 +965,7 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  Salinity, ppm
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
+         dplyr::filter(!if_any(c(salinity, site_id), is.na) & salinity<40), 
        aes(x=site_id, y=as.numeric(salinity), fill=site_id)) + 
   geom_boxplot() +
   ylab("Practical Salinity Unit (PSU)") +
@@ -926,7 +1030,8 @@ max(survey_envmeas_join$turbidity, na.rm=TRUE)
 ## Environmental measurements where turbidity is greater than 40
 ```{r}
 survey_envmeas_join %>%
-         filter(!if_any(c(turbidity, site_id), is.na) & turbidity>40)
+    dplyr::select(survey_date, site_id, general_location_name, turbidity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+         dplyr::filter(!if_any(c(turbidity, site_id), is.na) & turbidity>40)
 ```
 
 ## Environmental measurements of turbidity distribution
@@ -934,7 +1039,8 @@ survey_envmeas_join %>%
 plotTitle = "Distribution of Turbidity"
 # check distribution
 p1<-ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(turbidity, site_id), is.na)),aes(x=as.numeric(turbidity))) + 
+         dplyr::filter(!if_any(c(turbidity, site_id), is.na)),
+         aes(x=as.numeric(turbidity))) + 
   ggtitle(plotTitle) +
   ylab("Density") +
   xlab("Turbidity (Formazin Nephelometric Unit)") +
@@ -945,7 +1051,8 @@ p1<-ggplot(survey_envmeas_join %>%
 plotTitle = "Distribution of Turbidity (truncated)"
 # check distribution
 p2<-ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(turbidity, site_id), is.na) & turbidity<40),aes(x=as.numeric(turbidity))) + 
+         dplyr::filter(!if_any(c(turbidity, site_id), is.na) & turbidity<40),
+         aes(x=as.numeric(turbidity))) + 
   ggtitle(plotTitle) +
   ylab("Density") +
   xlab("Turbidity (Formazin Nephelometric Unit)") +
@@ -962,7 +1069,7 @@ rm(p1,p2)
 ## Scatter plot of water temperature by depth and month
 ```{r}
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(turbidity, site_id, envmeas_depth), is.na) & turbidity<40), 
+         dplyr::filter(!if_any(c(turbidity, site_id, envmeas_depth), is.na) & turbidity<40), 
        aes(x=survey_month, y=envmeas_depth, color=turbidity)) +
   geom_point(size=2) +
   geom_jitter(width = 0.25, height = 2) +
@@ -1001,7 +1108,8 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=16,width=6, units='in', res=300)
 #  turbidity, Formazin Nephelometric Unit
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(turbidity, site_id), is.na)), aes(x=site_id, y=as.numeric(turbidity), fill=site_id)) + 
+         dplyr::filter(!if_any(c(turbidity, site_id), is.na)), 
+       aes(x=site_id, y=as.numeric(turbidity), fill=site_id)) + 
   geom_boxplot() +
   ylab("Turbidity (Formazin Nephelometric Unit)") +
   xlab("Site ID") +
@@ -1025,7 +1133,8 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  turbidity, Formazin Nephelometric Unit
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(turbidity, site_id), is.na)), aes(x=system_type, y=as.numeric(turbidity), fill=system_type)) + 
+         dplyr::filter(!if_any(c(turbidity, site_id), is.na)), 
+       aes(x=system_type, y=as.numeric(turbidity), fill=system_type)) + 
   geom_boxplot() +
   ylab("Turbidity (Formazin Nephelometric Unit)") +
   xlab("System") +
@@ -1048,7 +1157,8 @@ outputPngFileName <- paste0(outputPngFolder,fileName,".png")
 png(outputPngFileName,height=4,width=12, units='in', res=150)
 #  turbidity, Formazin Nephelometric Unit
 ggplot(survey_envmeas_join %>%
-         filter(!if_any(c(turbidity, site_id), is.na)), aes(x=site_id, y=as.numeric(turbidity), fill=site_id)) + 
+         dplyr::filter(!if_any(c(turbidity, site_id), is.na)), 
+       aes(x=site_id, y=as.numeric(turbidity), fill=site_id)) + 
   geom_boxplot() +
   ylab("Turbidity (Formazin Nephelometric Unit)") +
   xlab("Site ID") +
@@ -1113,8 +1223,8 @@ max(survey_envmeas_join$conductivity, na.rm=TRUE)
 ## Environmental measurements where conductivity is less than 100
 ```{r}
 survey_envmeas_join %>%
-  select(survey_date, site_id, general_location_name, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
-  filter(!if_any(c(conductivity, site_id), is.na) & conductivity<100)
+  dplyr::select(survey_date, site_id, general_location_name, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+  dplyr::filter(!if_any(c(conductivity, site_id), is.na) & conductivity<100)
 ```
 
 ## Environmental measurements of conductivity distribution
@@ -1302,6 +1412,7 @@ max(survey_envmeas_join$do, na.rm=TRUE)
 ## Environmental measurements where dissolved oxygen is greater than 50
 ```{r}
 survey_envmeas_join %>%
+    dplyr::select(survey_date, site_id, general_location_name, do, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          filter(!if_any(c(do, site_id), is.na) & do>50)
 ```
 
@@ -1488,10 +1599,11 @@ max(survey_envmeas_join$par1, na.rm=TRUE)
 ```
 
 
-## Environmental measurements where par1 is greater than 40
+## Environmental measurements where par1 is greater than 1000
 ```{r}
 survey_envmeas_join %>%
-         filter(!if_any(c(par1, site_id), is.na) & par1>1000)
+    dplyr::select(survey_date, site_id, general_location_name, par1, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+         dplyr::filter(!if_any(c(par1, site_id), is.na) & par1>1000)
 ```
 
 ## Environmental measurements of par1 distribution
@@ -1661,6 +1773,7 @@ max(survey_envmeas_join$par2, na.rm=TRUE)
 ## Environmental measurements where par2 is greater than 40
 ```{r}
 survey_envmeas_join %>%
+    dplyr::select(survey_date, site_id, general_location_name, par2, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          filter(!if_any(c(par2, site_id), is.na) & par2>40)
 ```
 
@@ -1853,13 +1966,16 @@ survey_collection_join_siteids
 ## Water collection depth quantiles
 ```{r}
 #names(survey_collection_join)
-
-survey_collection_join %>%
-           filter(!if_any(c(water_depth, site_id), is.na) & water_depth>200)
-
 quantile(survey_collection_join$water_depth, na.rm=TRUE)
 min(survey_collection_join$water_depth, na.rm=TRUE)
 max(survey_collection_join$water_depth, na.rm=TRUE)
+```
+
+## Water collections where water_depth is greater than 200
+```{r}
+survey_collection_join %>%
+    dplyr::select(survey_date, site_id, general_location_name, water_depth, system_type) %>%
+           filter(!if_any(c(water_depth, site_id), is.na) & water_depth>200)
 ```
 
 ## Water collection depth distribution
@@ -1886,7 +2002,6 @@ rm(p1,p2)
 
 
 ## Water collection by site and month
-
 ```{r}
 
 #plotTitle = "Count of Survey123 records in freezer by type"
@@ -2028,7 +2143,6 @@ ggplot(survey_collection_join %>%
 ```
 
 
-
 ## Core collection by site and month
 ```{r}
 
@@ -2124,7 +2238,6 @@ knitr::include_graphics(outputPngFileName)
 * total cores collected overall, by site id, and by system
 * total counts of filter types
 * percentage of filters that have been prefiltered
-
 ```{r}
 unique_survey_sids <- unique(survey_sub$site_id)
 unique_filters_sids <- unique(clean_filter_join$site_id)
