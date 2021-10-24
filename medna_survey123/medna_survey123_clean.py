@@ -292,7 +292,8 @@ class DownloadCleanJoinData:
             survey_sub = survey_data_df[['GlobalID', 'Survey DateTime', 'Affiliated Projects', 'Supervisor',
                                          'username', 'Recorder First Name',
                                          'Recorder Last Name', 'Site ID', 'Other Site ID', 'General Location Name',
-                                         'EditDate', 'CreationDate']].copy()
+                                         'EditDate', 'CreationDate',
+                                         'Latitude', 'Longitude', 'gps_cap_lat', 'gps_cap_long']].copy()
             # rename fields to remove spaces
             survey_sub = survey_sub.rename(columns={'GlobalID': 'survey_GlobalID',
                                                     'Survey DateTime': 'survey_date',
@@ -304,7 +305,10 @@ class DownloadCleanJoinData:
                                                     'Other Site ID': 'other_site_id',
                                                     'General Location Name': 'general_location_name',
                                                     'EditDate': 'survey_edit_date',
-                                                    'CreationDate': 'survey_create_date'})
+                                                    'CreationDate': 'survey_create_date',
+                                                    'Latitude': 'lat_manual',
+                                                    'Longitude': 'long_manual'
+                                                    })
             # format date and add month and year columns
             survey_sub['survey_date'] = pd.to_datetime(survey_sub.survey_date)
             survey_sub['survey_month'] = survey_sub['survey_date'].dt.strftime('%m')
@@ -329,7 +333,8 @@ class DownloadCleanJoinData:
                                                    'projects', 'supervisor', 'username', 'recorder_first_name',
                                                    'recorder_last_name', 'system_type', 'site_id', 'other_site_id',
                                                    'general_location_name', 'survey_edit_date',
-                                                   'survey_create_date']].copy()
+                                                   'survey_create_date',
+                                                   'lat_manual', 'long_manual', 'gps_cap_lat', 'gps_cap_long']].copy()
             survey_sub_output['survey_date'] = pd.to_datetime(survey_sub_output.survey_date)
             survey_sub_output = survey_sub_output.sort_values(by=['survey_date', 'survey_GlobalID']).reset_index(drop=True)
 
@@ -529,7 +534,8 @@ class DownloadCleanJoinData:
 
             survey_envmeas_join_output = survey_envmeas_join.copy()
             # subset
-            survey_envmeas_join_output = survey_envmeas_join_output[['survey_GlobalID', 'survey_date',
+            survey_envmeas_join_output = survey_envmeas_join_output[['survey_GlobalID',
+                                                                     'survey_date',
                                                                      'survey_month', 'survey_year', 'projects',
                                                                      'supervisor', 'username',
                                                                      'recorder_first_name', 'recorder_last_name',
@@ -553,7 +559,9 @@ class DownloadCleanJoinData:
                                                                      'envmeas_notes',
                                                                      'envmeas_GlobalID',
                                                                      'survey_edit_date', 'survey_create_date',
-                                                                     'envmeas_create_date']].copy()
+                                                                     'envmeas_create_date',
+                                                                     'lat_manual', 'long_manual',
+                                                                     'gps_cap_lat', 'gps_cap_long']].copy()
             survey_envmeas_join_output['survey_date'] = pd.to_datetime(survey_envmeas_join_output.survey_date)
             survey_envmeas_join_output = survey_envmeas_join_output.sort_values(by=['survey_date',
                                                                                     'survey_GlobalID']).reset_index(drop=True)
@@ -599,7 +607,9 @@ class DownloadCleanJoinData:
                                                                            'purpose_other_cores',
                                                                            'collection_GlobalID',
                                                                            'survey_edit_date', 'survey_create_date',
-                                                                           'collection_create_date']].copy()
+                                                                           'collection_create_date',
+                                                                           'lat_manual', 'long_manual',
+                                                                           'gps_cap_lat', 'gps_cap_long']].copy()
             survey_collection_join_output['survey_date'] = pd.to_datetime(survey_collection_join_output.survey_date)
             survey_collection_join_output = survey_collection_join_output.sort_values(by=['survey_date', 'survey_GlobalID']).reset_index(drop=True)
 
@@ -636,7 +646,8 @@ class DownloadCleanJoinData:
                                                 'is_prefilter', 'filter_type', 'filter_label', 'filter_barcode',
                                                 'filter_notes', 'collection_GlobalID', 'filter_GlobalID',
                                                 'survey_edit_date', 'survey_create_date', 'collection_create_date',
-                                                'filter_create_date']].copy()
+                                                'filter_create_date',
+                                                'lat_manual', 'long_manual', 'gps_cap_lat', 'gps_cap_long']].copy()
 
             clean_filter_join['survey_date'] = pd.to_datetime(clean_filter_join.survey_date)
             clean_filter_join = clean_filter_join.sort_values(by=['survey_date', 'survey_GlobalID', 'filter_date']).reset_index(drop=True)
