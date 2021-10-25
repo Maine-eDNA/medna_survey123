@@ -520,8 +520,8 @@ class DownloadCleanJoinData:
             rep_filter_df = pd.read_csv(self.rep_filter)
             # subset
             rep_filter_sub = rep_filter_df[['GlobalID', 'ParentGlobalID', 'Is Prefilter', 'Filter Sample Label',
-                                            'Filter Barcode', 'Filter DateTime', 'Filter Type', 'Filter Notes',
-                                            'CreationDate']].copy()
+                                            'Filter Barcode', 'Filter DateTime', 'Filter Type', 'Other Filter Type',
+                                            'Filter Notes', 'CreationDate']].copy()
             # rename
             rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_GlobalID',
                                                             'ParentGlobalID': 'filter_ParentGlobalID',
