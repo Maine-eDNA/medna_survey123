@@ -530,6 +530,7 @@ class DownloadCleanJoinData:
                                                             'Filter Barcode': 'filter_barcode',
                                                             'Filter DateTime': 'filter_date',
                                                             'Filter Type': 'filter_type',
+                                                            'Other Filter Type': 'filter_type_other',
                                                             'Filter Notes': 'filter_notes',
                                                             'CreationDate': 'filter_create_date'})
             # change all filter_type to lower case
@@ -738,7 +739,8 @@ class DownloadCleanJoinData:
                                                 'recorder_last_name', 'system_type', 'site_id', 'other_site_id',
                                                 'general_location_name', 'collection_type',  'water_collect_date',
                                                 'water_vessel_label', 'water_collect_notes', 'filter_date',
-                                                'is_prefilter', 'filter_type', 'filter_label', 'filter_barcode',
+                                                'is_prefilter', 'filter_type', 'filter_type_other',
+                                                'filter_label', 'filter_barcode',
                                                 'filter_notes', 'collection_GlobalID', 'filter_GlobalID',
                                                 'survey_edit_date', 'survey_create_date', 'collection_create_date',
                                                 'filter_create_date',
