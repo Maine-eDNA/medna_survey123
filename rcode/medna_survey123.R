@@ -62,3 +62,16 @@ convert_ifnot_dt_date <- function(inputDf, dateCols, lapply=lubridate::ymd, ...)
   }
   return(inputDf)
 }
+
+###############################
+# s123
+###############################
+add_seasons_df <- function(df) {
+  df<-df %>%
+    mutate(season = case_when(survey_month==12 | survey_month==1 | survey_month==2 ~ "Winter", 
+                              survey_month==3 | survey_month==4 | survey_month==5 ~ "Spring",
+                              survey_month==6 | survey_month==7 | survey_month==8 ~ "Summer",
+                              survey_month==9 | survey_month==10 | survey_month==11 ~ "Fall")) %>%
+    mutate(season_year = paste0(season," ",survey_year))
+  return(df)
+}
