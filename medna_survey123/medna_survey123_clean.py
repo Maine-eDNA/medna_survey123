@@ -104,6 +104,7 @@ class DownloadCleanJoinData:
                  rep_filter=settings.REP_FILTER,
                  survey_projects=settings.SURVEY_PROJECTS,
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
+                 survey_crew_join_filename=settings.SURVEY_CREW_JOIN_FILENAME,
                  survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
                  clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME,
@@ -145,6 +146,7 @@ class DownloadCleanJoinData:
         self.join_tables = join_tables
         # Joined original data
         self.survey_sub_filename = survey_sub_filename
+        self.survey_crew_join_filename = survey_crew_join_filename
         self.survey_envmeas_join_filename = survey_envmeas_join_filename
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
@@ -362,6 +364,25 @@ class DownloadCleanJoinData:
         except Exception as err:
             raise RuntimeError("** Error: subset_survey_data Failed (" + str(err) + ")")
 
+    def subset_crew_dataset(self):
+        try:
+            api_logger.info("[START] subset_crew_dataset")
+            # read in CSVs as df
+            rep_crew_df = pd.read_csv(self.rep_crew)
+            rep_crew_sub = rep_crew_df[['GlobalID', 'ParentGlobalID',
+                                        'Crew First Name', 'Crew Last Name',
+                                        'CreationDate']].copy()
+            # rename
+            rep_crew_sub = rep_crew_sub.rename(columns={'GlobalID': 'crew_GlobalID',
+                                                        'ParentGlobalID': 'crew_ParentGlobalID',
+                                                        'Crew First Name': 'crew_fname',
+                                                        'Crew Last Name': 'crew_lname',
+                                                        'CreationDate': 'crew_create_date'})
+            api_logger.info("[END] subset_crew_dataset")
+            return rep_crew_sub
+        except Exception as err:
+            raise RuntimeError("** Error: subset_crew_dataset Failed (" + str(err) + ")")
+
     def subset_envmeas_dataset(self):
         try:
             api_logger.info("[START] subset_envmeas_dataset")
@@ -554,9 +575,42 @@ class DownloadCleanJoinData:
 
             # subset datasets
             survey_sub = self.subset_survey_dataset()
+            rep_crew_sub = self.subset_crew_dataset()
             rep_envmeas_sub = self.subset_envmeas_dataset()
             rep_collection_sub = self.subset_collection_dataset()
             rep_filter_sub = self.subset_filter_dataset()
+
+            # join eDNA_Sampling_v13_sub to rep_crew
+            survey_crew_join = pd.merge(rep_crew_sub, survey_sub, how='left',
+                                        left_on='crew_ParentGlobalID', right_on='survey_GlobalID')
+
+            survey_crew_join_output = survey_crew_join.copy()
+            # subset
+            survey_crew_join_output = survey_crew_join_output[['survey_GlobalID',
+                                                               'survey_date', 'survey_month', 'survey_year',
+                                                               'projects', 'supervisor', 'username',
+                                                               'recorder_first_name', 'recorder_last_name',
+                                                               'system_type', 'site_id', 'other_site_id',
+                                                               'general_location_name',
+                                                               'crew_fname', 'crew_lname',
+                                                               'crew_GlobalID', 'crew_ParentGlobalID',
+                                                               'survey_edit_date', 'survey_create_date',
+                                                               'crew_create_date',
+                                                               'lat_manual', 'long_manual',
+                                                               'gps_cap_lat', 'gps_cap_long']].copy()
+            survey_crew_join_output['survey_date'] = pd.to_datetime(survey_crew_join_output.survey_date)
+            survey_crew_join_output = survey_crew_join_output.sort_values(by=['survey_date',
+                                                                              'survey_GlobalID']).reset_index(drop=True)
+
+            # remove records without a specified first or last name
+            survey_crew_join_output['crew_fname'].replace('', np.nan, inplace=True)
+            survey_crew_join_output['crew_lname'].replace('', np.nan, inplace=True)
+            survey_crew_join_output.dropna(subset=['crew_fname', 'crew_lname'], how='all', inplace=True)
+
+            # write survey_envmeas_join to csv
+            api_logger.info("join_data: To CSV " + self.survey_crew_join_filename)
+            output_file = self.main_output_dir + self.survey_crew_join_filename + ".csv"
+            survey_crew_join_output.to_csv(output_file, encoding='utf-8')
 
             # join eDNA_Sampling_v13_sub to rep_envmeas
             survey_envmeas_join = pd.merge(rep_envmeas_sub, survey_sub, how='left',
@@ -771,6 +825,7 @@ class UploadData:
                  target_spreadsheet_name=settings.GSHEETS_SPREADSHEET_NAME,
                  main_output_dir=settings.MAIN_OUTPUT_DIR,
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
+                 survey_crew_join_filename=settings.SURVEY_CREW_JOIN_FILENAME,
                  survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
                  clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME,
@@ -779,6 +834,7 @@ class UploadData:
         self.target_spreadsheet_name = target_spreadsheet_name
         self.main_output_dir = main_output_dir
         self.survey_sub_filename = survey_sub_filename
+        self.survey_crew_join_filename = survey_crew_join_filename
         self.survey_envmeas_join_filename = survey_envmeas_join_filename
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
@@ -792,6 +848,7 @@ class UploadData:
             target_spreadsheet_name = self.target_spreadsheet_name
             main_output_dir = self.main_output_dir
             survey_sub_filename = self.survey_sub_filename
+            survey_crew_join_filename = self.survey_crew_join_filename
             survey_envmeas_join_filename = self.survey_envmeas_join_filename
             survey_collection_join_filename = self.survey_collection_join_filename
             clean_filter_join_filename = self.clean_filter_join_filename
@@ -805,6 +862,7 @@ class UploadData:
 
             # filepath for joined CSVs to be uploaded
             survey_sub = main_output_dir + survey_sub_filename + ".csv"
+            survey_crew_join = main_output_dir + survey_crew_join_filename + ".csv"
             survey_envmeas_join = main_output_dir + survey_envmeas_join_filename + ".csv"
             survey_collection_join = main_output_dir + survey_collection_join_filename + ".csv"
             clean_filter = main_output_dir + clean_filter_join_filename + ".csv"
@@ -813,7 +871,8 @@ class UploadData:
             # name of target spreadsheet
             spreadsheet = client.open(target_spreadsheet_name)
             worksheet_list = spreadsheet.worksheets()
-            upload_list = [survey_sub, survey_envmeas_join, survey_collection_join, clean_filter, clean_subcore]
+            upload_list = [survey_sub, survey_crew_join, survey_envmeas_join,
+                           survey_collection_join, clean_filter, clean_subcore]
 
             # the filename of each CSV will be used to name each sheet within the target spreadsheet.
             for upload in upload_list:
