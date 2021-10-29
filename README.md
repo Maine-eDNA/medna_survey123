@@ -1,5 +1,5 @@
 # Maine-eDNA Survey123
-
+*medna_survey123_gui.py is still under development and not directly used by the medna_survey123 python module.*
 
 ### Conda environment & ArcPy
 Requires ArcPy from ArcGIS Pro. To use, clone the `arcgispro-py3` 
