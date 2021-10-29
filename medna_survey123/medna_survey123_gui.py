@@ -2,7 +2,6 @@
 medna_survey123_gui
 Create tkinter gui for running medna_survey123_clean
 Created By: mkimble
-LAST MODIFIED: 09/15/2021
 """
 
 import tkinter as tk
@@ -10,6 +9,8 @@ import tkinter.ttk as ttk
 from tkinter import filedialog
 from PIL import Image, ImageTk
 from tkinter import N, E, S, W, messagebox
+
+# TODO - setup GUI
 
 light_grey = '#616161'
 dark_purple = '#8700e6'

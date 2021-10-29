@@ -1,7 +1,6 @@
 """
 medna_survey123_clean python settings
 Created By: mkimble
-LAST MODIFIED: 09/15/2021
 """
 
 import os

@@ -2,7 +2,6 @@
 medna_survey123_clean
 Download from ArcGIS Online, clean and join tables, and upload data to google sheets.
 Created By: mkimble
-LAST MODIFIED: 09/15/2021
 """
 
 import re, os, arcpy, csv, glob

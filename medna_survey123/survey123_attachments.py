@@ -2,7 +2,6 @@
 survey123_attachments
 Extract attachments from ESRI file geodatabase
 Created By: mkimble
-LAST MODIFIED: 09/15/2021
 """
 
 import os, arcpy
