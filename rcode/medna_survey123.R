@@ -925,13 +925,18 @@ create_plot_splot_system_depth_month <- function(df_inrange, depth_var, selected
   # outputPngFileName <- file.path(outputPngFolder, paste0(sprintf("s123_%s_%s_system_month_depth_splot.png", dfname, selected_var_plots)))
   plotTitle=sprintf("%s by System, Depth, and Month", selected_var_plots_fmt)
   ggplot(df_inrange %>%
-           dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))), 
-         aes_string(x="survey_month", y=depth_var, color=selected_var_plots)) +
+           dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%           dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
+           dplyr::mutate(month = format(survey_date, format="%b")) %>%
+           dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
+                                                       "Apr", "May", "Jun", 
+                                                       "Jul", "Aug", "Sep", 
+                                                       "Oct", "Nov", "Dec"))), 
+         aes_string(x="month", y=depth_var, color=selected_var_plots)) +
     geom_point(size=2) +
     geom_jitter(width = 0.25, height = 2) +
-    scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
-    scale_y_continuous(name=selected_var_plots_fmt) +
-    labs(color="") +
+    scale_x_discrete(name ="Month") +
+    scale_y_continuous(name="Depth (M)") +
+    labs(color=selected_var_plots_fmt) +
     ggtitle(plotTitle) +
     theme(plot.title = element_text(hjust = 0.5)) +
     theme(legend.position="top", legend.box = "horizontal") +
