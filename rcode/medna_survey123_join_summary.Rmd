@@ -52,6 +52,7 @@ selected_projects <- c("Larval Black Box (T1)",
                      "Microbial biosensors (T3)",
                      "Community Science (T3)",
                      "Other")
+theme_set(theme_bw())
 ```
 
 # LOAD SHAPFILES
@@ -377,7 +378,7 @@ rcdext_fmt_df
 ```{r}
 #names(WBD_sfdf_tidy);names(ME_coast_sfdf_tidy)
 plotTitle = "Maine-eDNA Sites with Environmental Measurements"
-title_var = "Survey"
+title_var = "Survey Records"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
@@ -675,11 +676,11 @@ dev.off()
 #knitr::include_graphics(outputPngFileName)
 rcdext_fmt_df
 ```
-## Map of unique Site IDs with water collection depths
+## Map of unique Site IDs with Env Measurement depths
 ```{r}
 #names(WBD_sfdf_tidy);names(ME_coast_sfdf_tidy)
-plotTitle = "Maine-eDNA Sites with Water Collection Depths"
-title_var = "Water Collection Depths"
+plotTitle = "Maine-eDNA Sites with Env Measurement Depths"
+title_var = "Env Measurement Depths"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_depth_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
@@ -2060,7 +2061,7 @@ print(paste0("Percentage of site ids with collections that are sediment: ",round
 names(survey_collection_join)
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
   dplyr::filter(collection_type=="sed_sample") %>%
   dplyr::select(collection_type, survey_date, projects, site_id, other_site_id, general_location_name, 
                 supervisor, username, recorder_first_name, recorder_last_name, 
@@ -2071,7 +2072,7 @@ survey_collection_join %>%
 
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
   dplyr::filter(collection_type=="water_sample") %>%
   dplyr::select(collection_type, survey_date, projects, site_id, other_site_id, general_location_name, 
                 supervisor, username, recorder_first_name, recorder_last_name,
@@ -2086,8 +2087,8 @@ survey_collection_join %>%
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, survey_year) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, survey_year) %>% 
   dplyr::mutate(ct_year=paste0(collection_type, " ", survey_year)) %>%
   dplyr::group_by(ct_year) %>%
   dplyr::count(ct_year) %>%
@@ -2106,8 +2107,8 @@ png(outputPngFileName,height=5,width=6, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, survey_year) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, survey_year) %>% 
   dplyr::mutate(ct_year=paste0(collection_type, " ", survey_year)) %>%
   dplyr::group_by(ct_year) %>%
   dplyr::count(ct_year) %>%
@@ -2133,8 +2134,8 @@ knitr::include_graphics(outputPngFileName)
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, system_type) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, system_type) %>% 
   dplyr::mutate(ct_system=paste0(collection_type, " ", system_type)) %>%
   dplyr::group_by(ct_system) %>%
   dplyr::count(ct_system) %>%
@@ -2154,8 +2155,8 @@ png(outputPngFileName,height=6,width=12, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, system_type) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, system_type) %>% 
   dplyr::mutate(ct_system=paste0(collection_type, " ", system_type)) %>%
   dplyr::group_by(ct_system) %>%
   dplyr::count(ct_system) %>%
@@ -2183,8 +2184,8 @@ knitr::include_graphics(outputPngFileName)
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, site_id) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, site_id) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id)) %>%
   dplyr::group_by(ct_sid) %>%
   dplyr::count(ct_sid) %>%
@@ -2203,8 +2204,8 @@ png(outputPngFileName,height=6,width=18, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, site_id) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, site_id) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id)) %>%
   dplyr::group_by(ct_sid) %>%
   dplyr::count(ct_sid) %>%
@@ -2232,8 +2233,8 @@ knitr::include_graphics(outputPngFileName)
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, survey_year, site_id) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, survey_year, site_id) %>% 
   dplyr::mutate(yr_sid=paste0(survey_year, " ", site_id)) %>%
   dplyr::group_by(yr_sid) %>%
   dplyr::count(yr_sid) %>%
@@ -2256,8 +2257,8 @@ knitr::include_graphics(outputPngFileName)
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, survey_year, system_type) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, survey_year, system_type) %>% 
   dplyr::mutate(yr_system=paste0(survey_year, " ", system_type)) %>%
   dplyr::group_by(yr_system) %>%
   dplyr::count(yr_system) %>%
@@ -2277,8 +2278,8 @@ png(outputPngFileName,height=6,width=12, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, survey_year, system_type) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, survey_year, system_type) %>% 
   dplyr::mutate(yr_system=paste0(survey_year, " ", system_type)) %>%
   dplyr::group_by(yr_system) %>%
   dplyr::count(yr_system) %>%
@@ -2306,8 +2307,8 @@ knitr::include_graphics(outputPngFileName)
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, site_id, survey_year) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, site_id, survey_year) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id, " ", survey_year)) %>%
   dplyr::group_by(ct_sid) %>%
   dplyr::count(ct_sid) %>%
@@ -2326,8 +2327,8 @@ png(outputPngFileName,height=6,width=90, units='in', res=300)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, collection_GlobalID, season, collection_type), is.na)) %>%
-  dplyr::select(collection_GlobalID, collection_type, site_id, survey_year) %>% 
+  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  dplyr::select(gid, collection_type, site_id, survey_year) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id, " ", survey_year)) %>%
   dplyr::group_by(ct_sid) %>%
   dplyr::count(ct_sid) %>%
@@ -2471,8 +2472,8 @@ knitr::include_graphics(outputPngFileName)
 # COLLECTIONS: SEDIMENT
 ## Summary of water collections per year, month, and season
 ```{r}
-dfname <- "Water Collections"
-selected_coltype <- "water_sample"
+dfname <- "Sediment Collections"
+selected_coltype <- "sed_sample"
 df_sub_prj<-subset_prj_df(survey_collection_join %>%
             dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
             dplyr::filter(!if_any(c(collection_type, site_id), is.na) & collection_type==selected_coltype), 
@@ -2585,7 +2586,7 @@ knitr::include_graphics(outputPngFileName)
 
 # COLLECTIONS: WATER COLLECTION DEPTH
 ```{r}
-depth_var <- "water_depth"
+selected_var_plots<-depth_var <- "water_depth"
 selected_plot_coltype <- "water_sample"
 df_inrange<-create_summary_col_table(survey_collection_join, selected_plot_coltype, 0, 100)
 ```
@@ -2745,7 +2746,7 @@ knitr::include_graphics(outputPngFileName)
 
 # COLLECTIONS: CORE COLLECTION DEPTH
 ```{r}
-depth_var <- "depth_core_collected"
+selected_var_plots<-depth_var <- "depth_core_collected"
 selected_plot_coltype <- "sed_sample"
 df_inrange<-create_summary_col_table(survey_collection_join, selected_plot_coltype, 0, 40)
 ```
@@ -2927,14 +2928,14 @@ names(clean_filter_join)
 
 cids <-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, filter_GlobalID, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::select(collection_GlobalID) %>% 
   dplyr::distinct(collection_GlobalID)
 
 
 cid_nitex<-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, filter_GlobalID, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::select(collection_GlobalID, filter_type) %>% 
   dplyr::filter(filter_type=="nitex") %>%
   dplyr::distinct(collection_GlobalID) %>%
@@ -2942,7 +2943,7 @@ cid_nitex<-clean_filter_join %>%
 
 cid_other<-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, filter_GlobalID, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::select(collection_GlobalID, filter_type) %>% 
   dplyr::filter(filter_type!="nitex") %>%
   #dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
@@ -2985,7 +2986,7 @@ rcdext_fmt_df
 ```{r}
 #names(WBD_sfdf_tidy);names(ME_coast_sfdf_tidy)
 plotTitle = "Maine-eDNA Sites with Filters"
-title_var = " Filters"
+title_var = "Filters"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_filters_all_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
@@ -3065,7 +3066,7 @@ create_table_count_filtertype_year(df_sub_prj)
 ```{r}
 clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, filter_GlobalID, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::filter(filter_type=="other") %>%
   dplyr::select(filter_type, filter_type_other, survey_date, projects, site_id, other_site_id, general_location_name, 
                 supervisor, username, recorder_first_name, recorder_last_name) %>%
@@ -3136,7 +3137,7 @@ rcdext_fmt_df
 ```{r}
 #names(WBD_sfdf_tidy);names(ME_coast_sfdf_tidy)
 plotTitle = "Maine-eDNA Sites with Subcores"
-title_var = " Subcores"
+title_var = "Subcores"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_subcores_all_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
