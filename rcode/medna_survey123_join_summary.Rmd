@@ -2453,6 +2453,7 @@ create_barplot_count_season(df_sub_prj, dfname)
 dev.off()
 #knitr::include_graphics(outputPngFileName)
 ```
+
 ## table of water collections per season and year
 ```{r}
 create_table_count_season_year(df_sub_prj)
@@ -2465,6 +2466,35 @@ plotTitle = "Count of water collections by season and year"
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_water_season_year_count_barplot.png"))
 png(outputPngFileName,height=3,width=6, units='in', res=150)
 create_barplot_count_season_year(df_sub_prj, dfname)
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+```
+
+## Table of water collections per system
+```{r}
+create_table_count_system(df_sub_prj)
+```
+## Barplot of water collections per system
+```{r}
+plotTitle = "Count of water collections by system"
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_water_system_count_barplot.png"))
+png(outputPngFileName,height=3,width=6, units='in', res=150)
+create_barplot_count_system(df_sub_prj, dfname)
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+```
+## Table of water collections per system and year
+```{r}
+create_table_count_system_year(df_sub_prj)
+```
+## Barplot of water collections per system and year
+```{r}
+plotTitle = "Count of water collections by system and year"
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_water_system_year_count_barplot.png"))
+png(outputPngFileName,height=3,width=6, units='in', res=150)
+create_barplot_count_system_year(df_sub_prj, dfname)
 dev.off()
 #knitr::include_graphics(outputPngFileName)
 ```
@@ -2585,6 +2615,34 @@ plotTitle = "Count of sediment collections by season and year"
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_sediment_season_year_count_barplot.png"))
 png(outputPngFileName,height=3,width=6, units='in', res=150)
 create_barplot_count_season_year(df_sub_prj, dfname) 
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+```
+## Table of sediment collections per system
+```{r}
+create_table_count_system(df_sub_prj)
+```
+## Barplot of sediment collections per system
+```{r}
+plotTitle = "Count of sediment collections by system"
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_sediment_system_count_barplot.png"))
+png(outputPngFileName,height=3,width=6, units='in', res=150)
+create_barplot_count_system(df_sub_prj, dfname)
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+```
+## Table of water sediment per system and year
+```{r}
+create_table_count_system_year(df_sub_prj)
+```
+## Barplot of water sediment per system and year
+```{r}
+plotTitle = "Count of water sediment by system and year"
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_sediment_system_year_count_barplot.png"))
+png(outputPngFileName,height=3,width=6, units='in', res=150)
+create_barplot_count_system_year(df_sub_prj, dfname)
 dev.off()
 #knitr::include_graphics(outputPngFileName)
 ```
