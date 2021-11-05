@@ -7,19 +7,45 @@ output: html_document
 
 Prepared by: Melissa Kimble
 
-
-
 This notebook:
 1. Loads Survey123 data
-2. Generates SiteID summaries
+2. Launches an embedded shiny application that provides SiteID summaries for a subset of environmental measurements and collection depths
 
-* add in all YSI sonde measurements
-* eg par1, par2, turbidity, do, conductivity, water temp
-* add map versions of each of these
+# Overview
+Seasons are as follows:
+* Jun, Jul, Aug (Summer)
+* Sep, Oct, Nov (Fall)
+* Dec, Jan, Feb (Winter)
+* Mar, Apr, May (Spring)
 
-* geom_sf
-* bubble plots with siteid
-* add map of regions
+* Environmental Measurements (YSI Sonde): par1, par2, turbidity, do, conductivity, water temp
+* Collections (sediment or water): depth collected
+
+### ENVIRONMENTAL MEASUREMENTS: MEASUREMENT DEPTH
+Measurement depth is recorded in meters (M).
+
+### ENVIRONMENTAL MEASUREMENTS: WATER TEMPERATURE
+Water temperature is typically recorded with a YSI instrument. Water temperature is recorded in °C and has a range of -5°C to 50°C.
+
+### ENVIRONMENTAL MEASUREMENTS: SALINITY
+Salinity is recorded in PSU (Practical Salinity Unit).
+For Maine ~30 PSU
+
+###  ENVIRONMENTAL MEASUREMENTS: TURBIDITY
+Turbidity is typically collected with a YSI instrument. Turbidity is recorded in FNU (Formazin Nephelometric Unit) and has a range of 0 to 4000 FNU. 
+* add turbidity ranges (what is high turbidity?), range for Maine?
+
+###  ENVIRONMENTAL MEASUREMENTS: CONDUCTIVITY
+Conductivity is typically collected with a YSI instrument. Conductivity is recorded in μS/cm and has a range of 0 to 100,000 μS/cm. 
+
+###  ENVIRONMENTAL MEASUREMENTS: DISSOLVED OXYGEN
+Dissolved Oxygen is typically collected with a YSI instrument. Dissolved Oxygen is recorded in mg/L and has a range of 0 to 50 mg/L. 
+
+###  ENVIRONMENTAL MEASUREMENTS: PAR1
+Photosynthetically Active Radiation (Channel 1: Up looking), or PAR1, is typically collected with a YSI instrument. PAR1 is recorded in μmoles/sec/m². 
+
+###  ENVIRONMENTAL MEASUREMENTS: PAR2
+Photosynthetically Active Radiation (Channel 2: Down looking), or PAR2, is typically collected with a YSI instrument. PAR2 is recorded in μmoles/sec/m². 
 
 # LOAD LIBRARIES 
 ```{r, echo=FALSE, results="hide", messages=FALSE, warning=FALSE}
@@ -27,7 +53,7 @@ This notebook:
 source("medna_survey123.R")
 ## Check libraries & install
 LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", 
-               "zoo", "tidyr", "gridExtra", "rgdal", "googlesheets4", "viridis", 
+               "zoo", "tidyr", "plyr", "gridExtra", "rgdal", "googlesheets4", "viridis", 
                "shiny", "leaflet", "spdplyr", "raster", "sf", "rgeos",
                "rmapshaper", "DT", "shinythemes", "shinyWidgets")
 install_or_load_pack(LibraryList)
@@ -92,15 +118,24 @@ knitr::include_graphics("../figures/survey123_v14_simplified_erd.png")
 ```{r, echo=FALSE, results="hide", messages=FALSE}
 # pre-select and grab oath
 googlesheets4::gs4_auth("melissa.kimble@maine.edu")
+
 # load gsheet
-s123_gsheet_url = "https://docs.google.com/spreadsheets/d/1IVn6Ui80VZZrFjjRCy6FaOwh_5fR9ZJj4OxNypYBduc/edit?usp=sharing"
-site_ids_gsheet <- googlesheets4::read_sheet(s123_gsheet_url, "SiteIDs")
-survey_sub<-googlesheets4::read_sheet(s123_gsheet_url, "eDNA_Sampling_v14_sub")
-survey_crew_join<-googlesheets4::read_sheet(s123_gsheet_url, "survey_crew_join")
-survey_envmeas_join<-googlesheets4::read_sheet(s123_gsheet_url, "survey_envmeas_join")
-survey_collection_join<-googlesheets4::read_sheet(s123_gsheet_url, "survey_collection_join")
-clean_filter_join<-googlesheets4::read_sheet(s123_gsheet_url, "clean_filter_join")
-clean_subcore_join<-googlesheets4::read_sheet(s123_gsheet_url, "clean_subcore_join")
+sid_gsheet_url = "https://docs.google.com/spreadsheets/d/1TzlvUuaedzW0Q8JgPepYvmos0M4y1f-M_TMvLy6ZaJI/edit?usp=sharing"
+#s123_gsheet_url = "https://docs.google.com/spreadsheets/d/1IVn6Ui80VZZrFjjRCy6FaOwh_5fR9ZJj4OxNypYBduc/edit?usp=sharing"
+site_ids_gsheet <- googlesheets4::read_sheet(sid_gsheet_url, "lyr_view_fieldapp")
+#survey_sub<-googlesheets4::read_sheet(s123_gsheet_url, "eDNA_Sampling_v14_sub")
+#survey_crew_join<-googlesheets4::read_sheet(s123_gsheet_url, "survey_crew_join")
+#survey_envmeas_join<-googlesheets4::read_sheet(s123_gsheet_url, "survey_envmeas_join")
+#survey_collection_join<-googlesheets4::read_sheet(s123_gsheet_url, "survey_collection_join")
+#clean_filter_join<-googlesheets4::read_sheet(s123_gsheet_url, "clean_filter_join")
+#clean_subcore_join<-googlesheets4::read_sheet(s123_gsheet_url, "clean_subcore_join")
+
+survey_sub <- data.table::fread(paste0(inputFolder,'eDNA_Sampling_v14_sub.csv'))
+survey_crew_join <- data.table::fread(paste0(inputFolder,'survey_crew_join.csv'))
+survey_envmeas_join <- data.table::fread(paste0(inputFolder,'survey_envmeas_join.csv'))
+survey_collection_join <- data.table::fread(paste0(inputFolder,'survey_collection_join.csv'))
+clean_filter_join <- data.table::fread(paste0(inputFolder,'clean_filter_join.csv'))
+clean_subcore_join <- data.table::fread(paste0(inputFolder,'clean_subcore_join.csv'))
 ```
 
 ## Column names and number of rows
@@ -114,14 +149,16 @@ nrow(clean_filter_join);names(clean_filter_join)
 nrow(clean_subcore_join);names(clean_subcore_join)
 # Head displays the first 6 rows of the data.table
 #head(survey_sub);head(survey_envmeas_join);head(survey_collection_join);head(clean_filter_join);head(clean_filter_join)
+#unique(survey_sub$system_type)
 ```
 
 
 ## Column names and number of rows
 ```{r, echo=FALSE, results="hide", messages=FALSE}
 site_ids_spdf <- site_ids_gsheet %>%
-  dplyr::select(SiteID, `General Location Name`, `Intended Purpose`, `Latitude`, `Longitude`, `System Type`, `Region Code`, 
-         `Survey123 Filter Count`, `Survey123 Core Count`) %>%
+  dplyr::select(SiteID, `General Location Name`, `Intended Purpose`, `Latitude`, `Longitude`, 
+                `System Type`, `Watershed Code`, `Region Name`, 
+                `Survey123 Filter Count`, `Survey123 Core Count`) %>%
   sf::st_as_sf(.,coords=c('Longitude', 'Latitude'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
   dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
   tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
@@ -129,7 +166,8 @@ site_ids_spdf <- site_ids_gsheet %>%
   dplyr::rename(general_location_name = `General Location Name`) %>%
   dplyr::rename(projects = `Intended Purpose`) %>%
   dplyr::rename(system_type = `System Type`) %>%
-  dplyr::rename(region_code = `Region Code`) %>%
+  dplyr::rename(watershed_code = `Watershed Code`) %>%
+  dplyr::rename(region_name = `Region Name`) %>%
   dplyr::rename(s123_filter_count = `Survey123 Filter Count`) %>%
   dplyr::rename(s123_core_count = `Survey123 Core Count`) %>%
   sf::as_Spatial()
@@ -139,1214 +177,1359 @@ site_id_prjs <- site_ids_gsheet %>%
   dplyr::select(SiteID, `Intended Purpose`)  %>%
   dplyr::rename(site_id = SiteID) %>%
   dplyr::rename(sid_prjs = `Intended Purpose`) %>%
-  dplyr::add_row(site_id="Other", sid_prjs="Other")
+  dplyr::add_row(site_id="other", sid_prjs="Other")
 
 boundingbox_sids<-raster::extent(site_ids_spdf@bbox)
 rm(site_ids_gsheet)
 ```
 
-## Add seasons to survey data
+## Add seasons & add full word system_types to survey data
 ```{r}
 # add seasons to survey_sub
-survey_sub<-add_seasons_df(survey_sub)
+survey_sub <- add_seasons_df(survey_sub)
+survey_sub$system_type <- plyr::mapvalues(survey_sub$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
+survey_sub <- survey_sub %>% dplyr::rename(gid=survey_GlobalID)
+# add seasons to survey_crew_join
+survey_crew_join <- add_seasons_df(survey_crew_join)
+survey_crew_join$system_type <- plyr::mapvalues(survey_crew_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
+survey_crew_join <- survey_crew_join %>% dplyr::rename(gid=crew_GlobalID)
 # add seasons to survey_collection_join
-survey_collection_join<-add_seasons_df(survey_collection_join)
+survey_collection_join <- add_seasons_df(survey_collection_join)
+survey_collection_join$system_type <- plyr::mapvalues(survey_collection_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
+survey_collection_join <- survey_collection_join %>% dplyr::rename(gid=collection_GlobalID)
 # add seasons to survey_envmeas_join
-survey_envmeas_join<-add_seasons_df(survey_envmeas_join)
+survey_envmeas_join <- add_seasons_df(survey_envmeas_join)
+survey_envmeas_join$system_type <- plyr::mapvalues(survey_envmeas_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
+survey_envmeas_join <- survey_envmeas_join %>% dplyr::rename(gid=envmeas_GlobalID)
 # add seasons to clean_filter_join
-clean_filter_join<-add_seasons_df(clean_filter_join)
+clean_filter_join <- add_seasons_df(clean_filter_join)
+clean_filter_join$system_type <- plyr::mapvalues(clean_filter_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
+clean_filter_join <- clean_filter_join %>% dplyr::rename(gid=filter_GlobalID)
 # add seasons to clean_subcore_join
-clean_subcore_join<-add_seasons_df(clean_subcore_join)
+clean_subcore_join <- add_seasons_df(clean_subcore_join)
+clean_subcore_join$system_type <- plyr::mapvalues(clean_subcore_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
+clean_subcore_join <- clean_subcore_join %>% dplyr::rename(gid=sample_global_id)
 ```
 
-# SURVEY SUMMARY 
-* Jun, Jul, Aug (Summer)
-* Sep, Oct, Nov (Fall)
-* Dec, Jan, Feb (Winter)
-* Mar, Apr, May (Spring)
-* records per season, records per year, records per month
-* (count of survey records, count of filters, count of cores, count of environmental measurements), barcharts grouped or stacked by year per site
 
-## Count of empty or NA site_ids
+
+## Shinyapp choices
 ```{r}
 
+envmeas_choices <- c("Measurement Depth" = "envmeas_depth",
+                     "Water Temperature" = "water_temp",
+                     "Salinity" = "salinity",
+                     "Turbidity" = "turbidity",
+                     "Conductivity" = "conductivity",
+                     "Dissolved Oxygen" = "do",
+                     "PAR1" = "par1",
+                     "PAR2" = "par2")
 
-# How do you want to treat NA?
-# subset the data by the NAs, explore them & their origin
-# can we programmatically fix it, or do we have to do it manually?
+envmeas_any_choices <- append(c("Any" = "env_measurements"), envmeas_choices)
 
-# 0 rows blank or NA Site IDs
+project_choices <- c("Larval Black Box (T1)" = "Larval Black Box (T1)",
+                     "Alewife (T1)" = "Alewife (T1)",
+                     "Fisheries eDNA (T1)" = "Fisheries eDNA (T1)",
+                     "Harmful algal blooms (T2)" = "Harmful algal blooms (T2)",
+                     "Species on the move (T2)" = "Species on the move (T2)",
+                     "Index Sites (T3)" = "Index Sites (T3)",
+                     "Macrosystem Integration (T3)" = "Macrosystem Integration (T3)",
+                     "Microbial biosensors (T3)" = "Microbial biosensors (T3)",
+                     "Community Science (T3)" = "Community Science (T3)",
+                     "Other" = "Other")
 
-nrow(survey_sub[survey_sub$site_id == "" | is.na(survey_sub$site_id),])
+barplot_choices <-c("Season" = "barSRSeason",
+                    "System" = "barSRSystem",
+                    "Season and Year" = "barSRSeasonYear",
+                    "System and Year" = "barSRSystemYear",
+                    "Month and Year" = "barSRMonthYear",
+                    "Site and Year" = "barSRSiteYear")
+
+filter_type_barplot_choices <- append(barplot_choices, c("Filter Type and Season" = "barFTSeason",
+                                                         "Filter Type and System" = "barFTSystem",
+                                                         "Filter Type and Year" = "barFTYear"))
+
+
+var_plot_choices <- c("Histogram" = "histVar",
+                      "Boxplot by Site and Month" = "boxSiteMonth",
+                      "Boxplot by System" = "boxSystem",
+                      "Boxplot by Site" = "boxSite",
+                      "Scatterplot by Depth, Month, and System"= "splotDepthMoSys")
+
+col_type_choices <- c("Water Collection" = "water_sample",
+                      "Sediment Collection" = "sed_sample")
+
+col_type_any_choices <- append(c("Any" = "collection_type"), col_type_choices) 
+
+filter_type_choices<-c("Nitex" = "nitex",
+                       "Supor" = "supor",
+                       "Glass Fiber Filter (GF/F)" = "gff",
+                       "Cellulose Nitrate (CN)" = "cn",
+                       "Other" = "other")
+
+filter_type_any_choices<-append(c("Any" = "filter_type"), filter_type_choices) 
+
+htmlpage_css <- ".multicol {height: 175px;-webkit-column-count: 2;
+                -moz-column-count: 2;column-count: 2;
+                -moz-column-fill: auto;-column-fill: auto;}"
+hr_css <- "border-top: 1px solid #000000;width: 100%"
+#hr_css <- "width: 100%"
 
 ```
 
 ## Map and table of unique Site IDs with survey records
-```{r, out.width = "100%", echo=FALSE}
-shinyApp(
+```{r, out.width = "100%", echo=FALSE, results="hide"}
+shiny::shinyApp(
   ui = tagList(
     #shinythemes::themeSelector(), # interactive theme selector
-    navbarPage(
-      theme = shinytheme("flatly"),
-      "Maine-eDNA Survey123 Summary",
-      tabPanel("Navbar 1",
-               bootstrapPage(
-                 box(width="100%",leafletOutput("survey_sids_map")),
-                 hr(style = "border-top: 1px solid #000000;width: 100%"),
-                 box(width="100%",DT::dataTableOutput('survey_sids_table'))
-                 ),
-               ),
-      tabPanel("Navbar 2", 
-               bootstrapPage(tags$head(tags$style(HTML(".multicol {height: 175px;-webkit-column-count: 2;
-                                                       -moz-column-count: 2;column-count: 2;
-                                                       -moz-column-fill: auto;-column-fill: auto;}"))),
-                 box(width="100%",plotOutput("survey_summary_plot")),
-                 fluidRow(
-                   column(3, selectInput("survey_summary_selectedplot", 
-                                         label="Plot", 
-                                         choices=c(
-                                           "Barplot Records per Season" = "barSRSeason",
-                                           "Barplot Records per Season and Year" = "barSRSeasonYear",
-                                           "Barplot Records per Month and Year" = "barSRMonthYear",
-                                           "Barplot Records per Site and Year" = "barSRSiteYear"), 
-                                         selected="barSRSeason")),
-                   column(9, tags$div(align = 'left', class = 'multicol',
-                                      checkboxGroupInput("survey_summary_sids_selectedplot",
-                                                         label="Projects",
-                                                         inline = FALSE, 
-                                                         choices=c(
-                                                           "Larval Black Box (T1)" = "Larval Black Box (T1)",
-                                                           "Alewife (T1)" = "Alewife (T1)",
-                                                           "Fisheries eDNA (T1)" = "Fisheries eDNA (T1)",
-                                                           "Harmful algal blooms (T2)" = "Harmful algal blooms (T2)",
-                                                           "Species on the move (T2)" = "Species on the move (T2)",
-                                                           "Index Sites (T3)" = "Index Sites (T3)",
-                                                           "Macrosystem Integration (T3)" = "Macrosystem Integration (T3)",
-                                                           "Microbial biosensors (T3)" = "Microbial biosensors (T3)",
-                                                           "Community Science (T3)" = "Community Science (T3)",
-                                                           "Other" = "Other"),
-                                                         selected="Index Sites (T3)"))),
-                   ),
-                 hr(style = "border-top: 1px solid #000000;width: 100%"),
-                 box(width="100%",DT::dataTableOutput('table'))
-                 )),
-      tabPanel("Navbar 3", "This panel is intentionally left blank")
-      )
+navbarPage(
+  id="navbar",
+  title="Maine-eDNA Survey123 Summary",
+  theme = shinytheme("flatly"),
+  # ----------------------------------
+  # tab panel 1 - Maps
+  tabPanel("Maps",
+           tags$head(tags$script(src = "gomap.js")),
+           tabsetPanel(id="tab_maps",
+                       tabPanel("Surveys",
+                                bootstrapPage(
+                                  column(12, leafletOutput("map_survey")),
+                                  column(12, htmlOutput("maps_text_survey")),
+                                  hr(style=hr_css),
+                                  column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                 DT::dataTableOutput('table_map_survey')))
+                                )
+                       ),
+                       tabPanel("Crew", 
+                                bootstrapPage(
+                                  column(12, leafletOutput("map_crew")),
+                                  column(12, htmlOutput("maps_text_crew")),
+                                  hr(style=hr_css),
+                                  column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                 DT::dataTableOutput('table_map_crew')))
+                                )                          
+                       ),
+                       tabPanel("Env Measurements", 
+                                bootstrapPage(
+                                  column(12, leafletOutput("map_envmeas")),
+                                  fluidRow(
+                                    column(3, selectInput("map_selectedvar_envmeas", 
+                                                          label="Variable", 
+                                                          choices=envmeas_any_choices,
+                                                          selected="env_measurements")
+                                    ),
+                                    column(9, htmlOutput("maps_text_envmeas")),
+                                  ),
+                                  hr(style=hr_css),
+                                  column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                 DT::dataTableOutput('table_map_envmeas')))
+                                )
+                       ),
+                       tabPanel("Collections", 
+                                bootstrapPage(
+                                  column(12, leafletOutput("map_col")),
+                                  fluidRow(
+                                    column(3, selectInput("map_selected_coltype", 
+                                                          label="Variable", 
+                                                          choices=col_type_any_choices,
+                                                          selected="collection_type")
+                                    ),
+                                    column(9, htmlOutput("maps_text_col")),
+                                  ),
+                                  hr(style=hr_css),
+                                  column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                 DT::dataTableOutput('table_map_col')))
+                                )
+                       ),
+                       tabPanel("Filters", 
+                                bootstrapPage(
+                                  column(12, leafletOutput("map_filters")),
+                                  fluidRow(
+                                    column(3, selectInput("map_selected_filtertype", 
+                                                          label="Variable", 
+                                                          choices=filter_type_any_choices,
+                                                          selected="filter_type")
+                                    ),
+                                    column(9, htmlOutput("maps_text_filters")),
+                                  ),
+                                  hr(style=hr_css),
+                                  column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                 DT::dataTableOutput('table_map_filters')))
+                                )                          
+                       ),
+                       tabPanel("SubCores", 
+                                bootstrapPage(
+                                  column(12, leafletOutput("map_subcores")),
+                                  column(12, htmlOutput("maps_text_subcores")),
+                                  hr(style=hr_css),
+                                  column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                 DT::dataTableOutput('table_map_subcores')))
+                                )                          
+                       )
+           )
+  ),
+  # ----------------------------------
+  # tab panel 3 - Barplots
+  tabPanel("Barplot Counts",
+           tabsetPanel(id="tab_barplots",
+                       tabPanel("Surveys",
+                                bootstrapPage(tags$head(tags$style(HTML(htmlpage_css))),
+                                              column(12, plotOutput("barplot_survey")),
+                                              
+                                              hr(style=hr_css),
+                                              fluidRow(
+                                                column(3, selectInput("barplot_selected_survey", 
+                                                                      label="Plot", 
+                                                                      choices=barplot_choices, 
+                                                                      selected="barSRSeason")),
+                                                column(9, tags$div(align = 'left', class = 'multicol',
+                                                                   checkboxGroupInput("barplot_selprj_survey",
+                                                                                      label="Projects",
+                                                                                      inline = FALSE, 
+                                                                                      choices=project_choices,
+                                                                                      selected="Index Sites (T3)"))),
+                                              ),
+                                              hr(style=hr_css),
+                                              textOutput("barplot_sum_survey"),
+                                              hr(style=hr_css),
+                                              column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                             DT::dataTableOutput('table_barplot_survey')))
+                                )
+                       ),
+                       tabPanel("Crew", 
+                                bootstrapPage(tags$head(tags$style(HTML(htmlpage_css))),
+                                              column(12, plotOutput("barplot_crew")),
+                                              hr(style=hr_css),
+                                              fluidRow(
+                                                column(3, selectInput("barplot_selected_crew", 
+                                                                      label="Plot", 
+                                                                      choices=barplot_choices, 
+                                                                      selected="barSRSeason")),
+                                                column(9, tags$div(align = 'left', class = 'multicol',
+                                                                   checkboxGroupInput("barplot_selprj_crew",
+                                                                                      label="Projects",
+                                                                                      inline = FALSE, 
+                                                                                      choices=project_choices,
+                                                                                      selected="Index Sites (T3)"))),
+                                              ),
+                                              hr(style=hr_css),
+                                              textOutput("barplot_sum_crew"),
+                                              hr(style=hr_css),
+                                              column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                             DT::dataTableOutput('table_barplot_crew')))
+                                )
+                       ),
+                       tabPanel("Env Measurements",
+                                bootstrapPage(tags$head(tags$style(HTML(htmlpage_css))),
+                                              column(12, plotOutput("barplot_envmeas")),
+                                              hr(style=hr_css),
+                                              fluidRow(
+                                                column(3, selectInput("barplot_selected_envmeas", 
+                                                                      label="Plot", 
+                                                                      choices=barplot_choices, 
+                                                                      selected="barSRSeason")),
+                                                column(9, tags$div(align = 'left', class = 'multicol',
+                                                                   checkboxGroupInput("barplot_selprj_envmeas",
+                                                                                      label="Projects",
+                                                                                      inline = FALSE, 
+                                                                                      choices=project_choices,
+                                                                                      selected="Index Sites (T3)"))),
+                                              ),
+                                              hr(style=hr_css),
+                                              textOutput("barplot_sum_envmeas"),
+                                              hr(style=hr_css),
+                                              column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                             DT::dataTableOutput('table_barplot_envmeas')))
+                                )
+                       ),
+                       tabPanel("Collections", 
+                                bootstrapPage(tags$head(tags$style(HTML(htmlpage_css))),
+                                              column(12, plotOutput("barplot_col")),
+                                              hr(style=hr_css),
+                                              fluidRow(
+                                                column(6, selectInput("barplot_selected_col", 
+                                                                      label="Plot", 
+                                                                      choices=barplot_choices, 
+                                                                      selected="barSRSeason")),
+                                                column(6, selectInput("barplot_selected_coltype",
+                                                                      label="Collection Type",
+                                                                      choices=col_type_any_choices,
+                                                                      selected="collection_type"))
+                                                
+                                              ),
+                                              fluidRow(
+                                                column(12, tags$div(align = 'left', class = 'multicol',
+                                                                    checkboxGroupInput("barplot_selprj_col",
+                                                                                       label="Projects",
+                                                                                       inline = FALSE, 
+                                                                                       choices=project_choices,
+                                                                                       selected="Index Sites (T3)")))
+                                              ),
+                                              hr(style=hr_css),
+                                              textOutput("barplot_sum_col"),
+                                              hr(style=hr_css),
+                                              column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                             DT::dataTableOutput('table_barplot_col')))
+                                )
+                       ),
+                       tabPanel("Filters", 
+                                bootstrapPage(tags$head(tags$style(HTML(htmlpage_css))),
+                                              column(12, plotOutput("barplot_filters")),
+                                              htmlOutput("barplot_perc_filters"),
+                                              hr(style=hr_css),
+                                              fluidRow(
+                                                column(6, selectInput("barplot_selected_filters", 
+                                                                      label="Plot", 
+                                                                      choices=filter_type_barplot_choices, 
+                                                                      selected="barSRSeason")),
+                                                column(6, selectInput("barplot_selected_filtertype",
+                                                                      label="Filter Type",
+                                                                      choices=filter_type_any_choices,
+                                                                      selected="filter_type"))
+                                                
+                                              ),
+                                              fluidRow(
+                                                column(12, tags$div(align = 'left', class = 'multicol',
+                                                                    checkboxGroupInput("barplot_selprj_filters",
+                                                                                       label="Projects",
+                                                                                       inline = FALSE, 
+                                                                                       choices=project_choices,
+                                                                                       selected="Index Sites (T3)")))
+                                              ),
+                                              hr(style=hr_css),
+                                              textOutput("barplot_sum_filters"),
+                                              hr(style=hr_css),
+                                              column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                             DT::dataTableOutput('table_barplot_filters')))
+                                )                          
+                       ),
+                       tabPanel("SubCores", 
+                                bootstrapPage(tags$head(tags$style(HTML(htmlpage_css))),
+                                              column(12, plotOutput("barplot_subcores")),
+                                              hr(style=hr_css),
+                                              fluidRow(
+                                                column(3, selectInput("barplot_selected_subcores", 
+                                                                      label="Plot", 
+                                                                      choices=barplot_choices, 
+                                                                      selected="barSRSeason")),
+                                                column(9, tags$div(align = 'left', class = 'multicol',
+                                                                   checkboxGroupInput("barplot_selprj_subcores",
+                                                                                      label="Projects",
+                                                                                      inline = FALSE, 
+                                                                                      choices=project_choices,
+                                                                                      selected="Index Sites (T3)"))),
+                                              ),
+                                              hr(style=hr_css),
+                                              textOutput("barplot_sum_subcores"),
+                                              hr(style=hr_css),
+                                              column(12, div(style = "margin-top: 30px; font-size: 1em;",
+                                                             DT::dataTableOutput('table_barplot_subcores')))
+                                )
+                       )
+           )
+  ),
+  # ----------------------------------
+  # tab panel 3 - Plots
+  tabPanel("Summary Plots",
+           tabsetPanel(id="tab_plots",
+                       tabPanel("Env Measurements",
+                                sidebarLayout(
+                                  sidebarPanel(
+                                    selectInput("plots_selectedvar_envmeas", 
+                                                label="Variable", 
+                                                choices=envmeas_choices,
+                                                selected="envmeas_depth"),
+                                    selectInput("plots_selected_envmeas", 
+                                                label="Plot", 
+                                                choices=var_plot_choices, 
+                                                selected="histVar"),
+                                    sliderInput("height_envmeas", label="Plot Height", min = 250, max = 2000, value = 500),
+                                    numericInput("range_start_envmeas","Variable Start", value = 0),
+                                    numericInput("range_end_envmeas", "Variable End", value = 100),
+                                    htmlOutput("plots_text_envmeas")
+                                  ),
+                                  mainPanel(
+                                    plotOutput("plots_envmeas", height = "auto"),
+                                    hr(style=hr_css),
+                                    div(style = "margin-top: 30px; font-size: 1em;",
+                                        DT::dataTableOutput('table_plots_envmeas'))
+                                  )
+                                )
+                       ),
+                       tabPanel("Collections", 
+                                sidebarLayout(
+                                  sidebarPanel(
+                                    selectInput("plots_selected_coltype", 
+                                                label="Variable", 
+                                                choices=col_type_choices,
+                                                selected="water_sample"),
+                                    selectInput("plots_selected_col", 
+                                                label="Plot", 
+                                                choices=var_plot_choices, 
+                                                selected="histVar"),
+                                    sliderInput("height_col", label="Plot Height", min = 250, max = 2000, value = 500),
+                                    numericInput("range_start_col","Variable Start", value = 0),
+                                    numericInput("range_end_col", "Variable End", value = 100),
+                                    htmlOutput("plots_text_col")
+                                  ),
+                                  mainPanel(
+                                    plotOutput("plots_col", height = "auto"),
+                                    hr(style=hr_css),
+                                    div(style = "margin-top: 30px; font-size: 1em;",
+                                        DT::dataTableOutput('table_plots_col'))
+                                  )
+                                )
+                       )
+           )
+  )
+  )
     ),
-  server = function(input, output) {
-    output$survey_sids_map <- renderLeaflet({
-      leaflet() %>%
-        addTiles() %>%
-        setView(lng=-68.5, lat=44.0, zoom=7)
+  server = function(input, output, session) {
+  theme_set(theme_bw())
+  transparent_theme <- theme(plot.title = element_text(hjust = 0.5)) +
+    theme(panel.background= element_blank(),
+          plot.background = element_blank(),
+          legend.background = element_blank(),
+          legend.box.background = element_blank()) 
+  
+  observe({
+    if (input$navbar == "Maps") {
+      # only render if the tab is "maps"
+      output$map_survey <-output$map_crew <- output$map_envmeas <- output$map_col <- output$map_filters <- output$map_subcores <- renderLeaflet({
+        leaflet() %>%
+          addTiles() %>%
+          setView(lng=-68.5, lat=44.0, zoom=7)
       })
-    observe({
-      selectPlot<-input$survey_summary_selectedplot
-      selectedProjects<-input$survey_summary_sids_selectedplot
+      if (input$tab_maps == "Surveys") {
+        perc_var_txt<-input$tab_maps
+        proxy <- leafletProxy("map_survey")
+        df_map <- survey_sub
+      }
+      if (input$tab_maps == "Crew") {
+        perc_var_txt<-input$tab_maps
+        proxy <- leafletProxy("map_crew")
+        df_map <- survey_crew_join %>%
+          dplyr::mutate(crew_fname=na_if(crew_fname, "")) %>%
+          dplyr::mutate(crew_lname=na_if(crew_lname, "")) %>%
+          dplyr::filter(if_all(c(crew_fname, crew_lname), ~ !is.na(.)))
+      }
+      if (input$tab_maps == "Env Measurements") {
+        select_var_maps<-input$map_selectedvar_envmeas
+        perc_var_txt<-tools::toTitleCase(gsub("_"," ",select_var_maps))
+        proxy <- leafletProxy("map_envmeas")
+        df_map <- survey_envmeas_join  %>%
+          dplyr::mutate(env_measurements=na_if(env_measurements, "")) %>%
+          dplyr::filter(!if_any(c(select_var_maps, site_id, env_measurements), is.na))
+      }
+      if (input$tab_maps == "Collections") {
+        proxy <- leafletProxy("map_col")
+        if (input$map_selected_coltype == "collection_type"){
+          perc_var_txt<-input$tab_maps
+          df_map = survey_collection_join %>%
+            dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
+            dplyr::filter(!if_any(c(collection_type, site_id), is.na))
+        } else {
+          perc_var_txt<-tools::toTitleCase(gsub("_"," ",input$map_selected_coltype))
+          df_map <- survey_collection_join %>%
+            dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
+            dplyr::filter(!if_any(c(collection_type, site_id), is.na) & collection_type==input$map_selected_coltype)
+        }
+      }
+      if (input$tab_maps == "Filters") {
+        proxy <- leafletProxy("map_filters")
+        if (input$map_selected_filtertype == "filter_type"){
+          perc_var_txt<-input$tab_maps
+          df_map <- clean_filter_join %>%
+            dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+            dplyr::filter(!if_any(c(survey_GlobalID, gid, filter_type, filter_label), is.na))
+        } else {
+          perc_var_txt<-tools::toTitleCase(gsub("_"," ",input$map_selected_filtertype))
+          df_map = clean_filter_join %>%
+            dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+            dplyr::filter(!if_any(c(survey_GlobalID, gid, filter_type, filter_label), is.na) & filter_type==input$map_selected_filtertype)
+        }
+      }
+      if (input$tab_maps == "SubCores") {
+        perc_var_txt<-input$tab_maps
+        proxy <- leafletProxy("map_subcores")
+        df_map <- clean_subcore_join %>%
+          dplyr::filter(!if_any(c(gid, survey_GlobalID, collection_GlobalID), is.na))
+      }
       
-      # Subset df based on selected projects in plot view
-      survey_sub_prj <- survey_sub %>%
+      ## SURVEY SUMMARY MAP SETUP
+      rcdext_sids_all <- df_map %>%
+        dplyr::filter(!if_any(c(site_id), is.na)) %>%
+        dplyr::select(site_id) %>%
+        dplyr::filter(site_id!="other") %>%
+        dplyr::distinct() %>%
+        dplyr::left_join(as.data.frame(site_ids_spdf)) %>%
+        dplyr::mutate(RecordsExist="Yes") %>%
+        dplyr::select(site_id, RecordsExist) %>%
+        dplyr::full_join(as.data.frame(site_ids_spdf)) %>%
+        dplyr::mutate(id = row_number()) %>%
+        dplyr::mutate(id = paste0("s",id)) %>%
+        dplyr::mutate(RecordsExist = ifelse(is.na(RecordsExist), "No", RecordsExist)) %>%
+        dplyr::select(id, site_id, general_location_name, RecordsExist, 
+                      projects, system_type, watershed_code, lon, lat) %>%
+        dplyr::arrange(site_id) 
+      
+      rcdext_sids_other <- df_map %>%
+        dplyr::filter(!if_any(c(site_id), is.na)) %>%
+        dplyr::filter(site_id == "other") %>%
+        dplyr::filter(lat_manual > 0 | long_manual > 0) %>%
+        dplyr::select(site_id, general_location_name, projects, lat_manual, long_manual) %>%
+        dplyr::distinct() %>%
+        dplyr::rename(lat=lat_manual) %>%
+        dplyr::rename(lon=long_manual) %>%
+        dplyr::mutate(RecordsExist="Yes") %>%
+        dplyr::mutate(watershed_code="other") %>%
+        dplyr::mutate(system_type="other") %>%
+        dplyr::mutate(id = row_number()) %>%
+        dplyr::mutate(id = paste0("o",id)) %>%
+        dplyr::select(id, everything()) %>%
+        dplyr::arrange(general_location_name)
+      
+      rcdext_sids_all_spdf <- rcdext_sids_all %>%
+        sf::st_as_sf(., coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
+        dplyr::mutate(geom=gsub(geometry, pattern="(\\))|(\\()|c", replacement="")) %>% # remove geometry characters
+        tidyr::separate(geom, into=c("lon","lat"), sep=",") %>% # reseparate out lat, long
+        sf::as_Spatial()
+      
+      if (nrow(rcdext_sids_other) > 0) {
+        rcdext_sids_other_spdf <- rcdext_sids_other %>% 
+          sf::st_as_sf(., coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
+          dplyr::mutate(geom=gsub(geometry, pattern="(\\))|(\\()|c", replacement="")) %>% # remove geometry characters
+          tidyr::separate(geom, into=c("lon", "lat"), sep=",") %>% # reseparate out lat, long
+          sf::as_Spatial()
+      }
+      
+      unique_survey_gids <- unique(survey_sub$gid)
+      if (input$tab_maps == "Surveys") {
+        unique_tab_gids <- unique(df_map$gid) 
+      } else {
+        unique_tab_gids <- unique(df_map$survey_GlobalID) 
+      }
+      perc_gids <- (length(unique_tab_gids)/length(unique_survey_gids))*100
+      perc_sids <- rcdext_sids_all %>%
+        dplyr::group_by(RecordsExist) %>%
+        dplyr::summarise(count=n()) %>%
+        dplyr::mutate(perc = formattable::percent(count / sum(count)))
+      
+      output$maps_text_survey <- output$maps_text_crew <-output$maps_text_envmeas <-output$maps_text_col <-output$maps_text_filters <-output$maps_text_subcores <-renderUI({
+        str1 <- sprintf("Percentage of Survey Records with %s: %g %%", perc_var_txt, perc_gids)
+        str2 <- sprintf("Percentage of Site IDs with %s: %s", perc_var_txt, perc_sids$perc[perc_sids$RecordsExist=="Yes"])
+        HTML(paste(str1, str2, sep = '<br/>'))
+      })
+      
+      if (nrow(rcdext_sids_other)>0) {
+        rcdext_df <- rbind(data.table(rcdext_sids_all), data.table(rcdext_sids_other), fill=TRUE)
+      } else {
+        rcdext_df <- as.data.frame(rcdext_sids_all)
+      }
+      
+      # SURVEY SUMMARY MAP TABLE
+      output$table_map_survey <- output$table_map_envmeas <- output$table_map_crew <- output$table_map_col <- output$table_map_filters <- output$table_map_subcores <-DT::renderDataTable({
+        df <- rcdext_df %>% 
+          dplyr::mutate(across(c(lat, lon), as.numeric)) %>%
+          dplyr::mutate(ZoomTo = paste('<a class="go-map" href="" data-lat="', lat, '" data-lon="', lon, '" data-id="', id, '"><i class="fa fa-crosshairs"></i></a>', sep="")) %>%
+          dplyr::select(ZoomTo, everything())
+        zoomto <- DT::dataTableAjax(session, df)
+        #DT::datatable(rcdext_df, options = list(scrollX = TRUE, pageLength = 5, ajax = list(url = zoomto)), escape = FALSE, rownames = FALSE)
+        DT::datatable(df, options = list(scrollX = TRUE, pageLength = 5, ajax = list(url = zoomto)), escape = FALSE)
+        
+      })
+      
+      # SURVEY SUMMARY MAP
+      sids_popup <- sprintf(
+        "<strong>%s: %s</strong><br/>Has %s records: %s<br/>%s",
+        rcdext_sids_all_spdf$site_id, rcdext_sids_all_spdf$general_location_name,
+        input$tab_maps,
+        rcdext_sids_all_spdf$RecordsExist, rcdext_sids_all_spdf$projects) %>% 
+        lapply(htmltools::HTML)
+      
+      proxy %>%
+        clearMarkers() %>%
+        clearShapes() %>%
+        clearControls() %>%
+        addPolygons(data=WBD_spdf_simplified, layerId=~region_cod,
+                    fillColor="grey", fillOpacity=0.5, 
+                    color="#444444", opacity=1,
+                    weight=1,  dashArray="3",
+                    group="Watersheds") %>%
+        addLabelOnlyMarkers(data=centers_wbd, lng=~x, lat=~y, label=~region_cod,
+                            labelOptions = labelOptions(noHide = TRUE, direction = 'middle', textOnly = TRUE),
+                            group="Watersheds") %>%
+        hideGroup("Watersheds") %>%
+        addCircleMarkers(data=rcdext_sids_all_spdf, layerId=~id, 
+                         fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
+                         color="#444444", opacity=1, popup=sids_popup,
+                         weight=1, radius=5, stroke=TRUE,
+                         group="Site IDs") %>%
+        addLegend(data=rcdext_sids_all_spdf, pal=existsPal, values=~RecordsExist, opacity = 1)
+      if (nrow(rcdext_sids_other)>0) {
+       osids_popup <- sprintf(
+          "<strong>%s: %s</strong><br/>Has %s records: %s<br/>%s",
+          rcdext_sids_other_spdf$site_id, rcdext_sids_other_spdf$general_location_name,
+          input$tab_maps,
+          rcdext_sids_other_spdf$RecordsExist, rcdext_sids_other_spdf$projects) %>% 
+          lapply(htmltools::HTML)
+        proxy %>% addCircleMarkers(data=rcdext_sids_other_spdf, layerId=~id, 
+                                   fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
+                                   color="#444444", opacity=1, popup=osids_popup,
+                                   weight=1, radius=5, stroke=TRUE,
+                                   group="Other Sites") %>%
+          addLayersControl(
+            overlayGroups = c("Watersheds", "Site IDs", "Other Sites"),
+            options = layersControlOptions(collapsed = FALSE))
+      } else {
+        proxy %>%
+          addLayersControl(
+            overlayGroups = c("Watersheds", "Site IDs"),
+            options = layersControlOptions(collapsed = FALSE))
+      }
+      
+      showSitePopup <- function(ID, lat, lng, proxy) {
+        selected_site_id <- rcdext_df$site_id[rcdext_df$id == ID][1]
+        selected_site_name <- rcdext_df$general_location_name[rcdext_df$id == ID][1]
+        selected_exists <- rcdext_df$RecordsExist[rcdext_df$id == ID][1]
+        selected_prj <- rcdext_df$projects[rcdext_df$id == ID][1]
+        content<-sprintf(
+          "<strong>%s: %s</strong><br/>Has %s records: %s<br/>%s",
+          selected_site_id, selected_site_name,
+          input$tab_maps,
+          selected_exists, selected_prj) %>% 
+          lapply(htmltools::HTML)
+        #print(proxy$id)
+        #addPopups(lng, lat, content, layerId=ID)
+        proxy %>% addPopups(lng, lat, content, layerId=ID)
+      }
+      
+      # if click in table, show popup
+      if (is.null(input$goto))
+        return()
+      isolate({
+        proxy %>% clearPopups()
+        dist <- 0.05
+        
+        lat <- input$goto$lat
+        lng <- input$goto$lng
+        ID <- input$goto$id
+        
+        showSitePopup(ID, lat, lng, proxy)
+        proxy %>% fitBounds(lng - dist, lat - dist, lng + dist, lat + dist*10)
+      })
+      
+      
+    }
+    
+    if (input$navbar == "Barplot Counts") {
+      if (input$tab_barplots == "Surveys") {
+        selected_barplot <- input$barplot_selected_survey
+        selected_projects <- input$barplot_selprj_survey
+        df_bplot <- survey_sub
+      }
+      if (input$tab_barplots == "Crew") {
+        selected_barplot <- input$barplot_selected_crew
+        selected_projects <- input$barplot_selprj_crew
+        df_bplot <- survey_crew_join %>%
+          dplyr::filter(!if_all(c(crew_fname, crew_lname), is.na))
+      }
+      if (input$tab_barplots == "Env Measurements") {
+        selected_barplot<-input$barplot_selected_envmeas
+        selected_projects<-input$barplot_selprj_envmeas
+        df_bplot <- survey_envmeas_join  %>%
+          dplyr::mutate(env_measurements=na_if(env_measurements, "")) %>%
+          dplyr::filter(!if_any(c(site_id, env_measurements), is.na))
+      }
+      if (input$tab_barplots == "Collections") {
+        selected_barplot<-input$barplot_selected_col
+        selected_projects<-input$barplot_selprj_col
+        selected_coltype<-input$barplot_selected_coltype
+        if (selected_coltype == "collection_type") {
+          df_bplot <- survey_collection_join %>%
+            dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
+            dplyr::filter(!if_any(c(collection_type, site_id), is.na))
+        } else {
+          df_bplot <- survey_collection_join %>%
+            dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
+            dplyr::filter(!if_any(c(collection_type, site_id), is.na) & collection_type==selected_coltype)
+        }
+      }
+      if (input$tab_barplots == "Filters") {
+        selected_barplot<-input$barplot_selected_filters
+        selected_projects<-input$barplot_selprj_filters
+        selected_filtertype<-input$barplot_selected_filtertype
+        selected_filtertype_fmt<-tools::toTitleCase(gsub("_"," ",selected_filtertype))
+        if (selected_filtertype=="filter_type") {
+          df_bplot <- clean_filter_join %>%
+            dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+            filter(!if_any(c(collection_GlobalID, gid, filter_type, filter_label), is.na))
+        } else {
+          df_bplot <- clean_filter_join %>%
+            dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+            filter(!if_any(c(collection_GlobalID, gid, filter_type, filter_label), is.na) & filter_type==selected_filtertype)
+        }
+        cids <- df_bplot %>%
+          distinct(collection_GlobalID)
+        
+        cids_filter <- df_bplot %>%
+          dplyr::select(collection_GlobalID, filter_type) %>% 
+          dplyr::mutate(is_nitex=factor(ifelse(filter_type=="nitex", "nitex", "not_nitex"))) %>%
+          dplyr::distinct(collection_GlobalID, is_nitex) %>%
+          dplyr::group_by(collection_GlobalID) %>%
+          dplyr::count(collection_GlobalID) %>%
+          dplyr::group_by(n) %>%
+          dplyr::count(n) %>%
+          dplyr::mutate(perc_prefilter=(nn/nrow(cids))*100)
+        
+        output$barplot_perc_filters <- renderUI({
+          str1 <- sprintf("Percentage of Water Collections with prefilters & filters: %g %%", round(cids_filter$perc_prefilter[cids_filter$n==2],2))
+          str2 <- sprintf("Percentage of Water Collections with only prefilters or filters (not both): %g %%", round(cids_filter$perc_prefilter[cids_filter$n==1],2))
+          HTML(paste(str1, str2,  sep = '<br/>'))
+        })
+        
+      }
+      if (input$tab_barplots == "SubCores") {
+        selected_barplot <- input$barplot_selected_subcores
+        selected_projects <- input$barplot_selprj_subcores
+        df_bplot <- clean_subcore_join %>%
+          dplyr::filter(!if_any(c(gid, survey_GlobalID, collection_GlobalID), is.na))
+      }
+      selected_projects <- gsub("[()]", "", selected_projects)
+      selected_projects <- tolower(selected_projects)
+      
+      # Subset df_bplot based on selected projects in plot view
+      df_sub_prj <- df_bplot %>%
         dplyr::mutate(projects=na_if(projects,"")) %>%
         dplyr::mutate(projects = replace_na(projects, "Maine eDNA")) %>%
         dplyr::left_join(site_id_prjs) %>%
-        dplyr::filter(sid_prjs %in% selectedProjects) 
-
-      ## SURVEY SUMMARY MAP SETUP
-      rcdext_sids_all <- survey_sub %>%
-        filter(!if_any(c(site_id), is.na)) %>%
-        dplyr::select(site_id) %>%
-        dplyr::filter(site_id!="other") %>%
-        dplyr::distinct() %>%
-        dplyr::left_join(as.data.frame(site_ids_spdf)) %>%
-        dplyr::mutate(RecordsExist="Yes") %>%
-        dplyr::select(site_id, RecordsExist) %>%
-        dplyr::full_join(as.data.frame(site_ids_spdf)) %>%
-        dplyr::mutate(RecordsExist = ifelse(is.na(RecordsExist), "No", RecordsExist)) %>%
-        dplyr::select(site_id, general_location_name, RecordsExist, 
-                      projects, system_type, region_code, s123_filter_count, 
-                      s123_core_count, lon, lat) %>%
-        dplyr::arrange(site_id) 
+        dplyr::mutate(sid_prjs_sub = gsub(",", " ", sid_prjs)) %>%
+        dplyr::mutate(sid_prjs_sub = gsub("[()]", "",sid_prjs_sub)) %>%
+        dplyr::mutate(sid_prjs_sub = tolower(sid_prjs_sub)) %>%
+        dplyr::filter(grepl(paste(selected_projects, collapse="|"), sid_prjs_sub)) %>%
+        dplyr::select(-sid_prjs_sub)
       
-      rcdext_sids_other <- survey_sub %>%
-        filter(!if_any(c(site_id), is.na)) %>%
-        dplyr::filter(site_id=="other") %>%
-        dplyr::filter(lat_manual>0 | long_manual>0) %>%
-        dplyr::select(site_id, general_location_name, projects, lat_manual, long_manual) %>%
-        dplyr::distinct() %>%
-        dplyr::rename(lat=lat_manual) %>%
-        dplyr::rename(lon=long_manual) %>%
-        dplyr::mutate(RecordsExist="Yes") %>%
-        dplyr::mutate(region_code="other") %>%
-        dplyr::mutate(system_type="other") %>%
-        dplyr::arrange(general_location_name)
       
-      rcdext_sids_all_spdf <- rcdext_sids_all %>%
-        sf::st_as_sf(.,coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
-        dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
-        tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
-        sf::as_Spatial()
+      ## RENDER TEXT: NROWS
+      output$barplot_sum_survey <- output$barplot_sum_crew <- output$barplot_sum_envmeas <- output$barplot_sum_col <- output$barplot_sum_filters <- output$barplot_sum_subcores <- renderText({
+        sprintf("Total number of rows: %g", nrow(df_sub_prj))
+      })
       
-      if (nrow(rcdext_sids_other)>0) {
-        rcdext_sids_other_spdf<-rcdext_sids_other %>% 
-          sf::st_as_sf(.,coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
-          dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
-          tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
-          sf::as_Spatial()
-      }
-        
-      # SURVEY SUMMARY MAP TABLE
-      output$survey_sids_table <- DT::renderDataTable({
-        if (nrow(rcdext_sids_other)>0) {
-          DT::datatable(rbind(data.table(rcdext_sids_all), data.table(rcdext_sids_other), fill=TRUE), options = list(scrollX = TRUE))
-          } else {
-            DT::datatable(as.data.frame(rcdext_sids_all), options = list(scrollX = TRUE))
-            }
-        })
-      
-      # SURVEY SUMMARY MAP
-      sidsPopup <- sprintf(
-        "<strong>%s: %s</strong><br/>Has environmental measurements: %s<br/>%s",
-        rcdext_sids_all_spdf$site_id, rcdext_sids_all_spdf$general_location_name,
-        rcdext_sids_all_spdf$RecordsExist, rcdext_sids_all_spdf$projects) %>% 
-        lapply(htmltools::HTML)
-      
-      proxy <- leafletProxy("survey_sids_map")
-      proxy %>%
-        clearMarkers() %>%
-        clearShapes() %>%
-        clearPopups() %>%
-        clearControls() %>%
-        addPolygons(data=WBD_spdf_simplified, layerId=~region_cod,
-                    fillColor="grey", fillOpacity=0.5, 
-                    color="#444444", opacity=1,
-                    weight=1,  dashArray="3",
-                    group="Watersheds") %>%
-            addLabelOnlyMarkers(data=centers_wbd, lng=~x, lat=~y, label=~region_cod,
-                                labelOptions = labelOptions(noHide = TRUE, direction = 'middle', textOnly = TRUE),
-                                group="Watersheds") %>%
-            addCircleMarkers(data=rcdext_sids_all_spdf, layerId=~unique(site_id), 
-                             fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
-                             color="#444444", opacity=1, 
-                             weight=1, radius=5, stroke=TRUE,
-                             popup = sidsPopup,
-                             group="Site IDs") %>%
-        hideGroup("Watersheds") %>%
-        addLegend(data=rcdext_sids_all_spdf, pal=existsPal, values=~RecordsExist, opacity = 1)
-      if (nrow(rcdext_sids_other)>0) {
-        oSidsPopup <- sprintf(
-          "<strong>%s: %s</strong><br/>Has environmental measurements: %s<br/>%s",
-          rcdext_sids_other_spdf$site_id, rcdext_sids_other_spdf$general_location_name,
-          rcdext_sids_other_spdf$RecordsExist, rcdext_sids_other_spdf$projects) %>% 
-          lapply(htmltools::HTML)
-        proxy %>% addCircleMarkers(data=rcdext_sids_other_spdf, 
-                             fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
-                             color="#444444", opacity=1, 
-                             weight=1, radius=5, stroke=TRUE,
-                             popup = oSidsPopup,
-                             group="Other Sites") %>%
-          addLayersControl(
-              overlayGroups = c("Watersheds", "Site IDs", "Other Sites"),
-              options = layersControlOptions(collapsed = FALSE))
-      } else {
-        proxy %>%
-          addLayersControl(
-              overlayGroups = c("Watersheds", "Site IDs"),
-              options = layersControlOptions(collapsed = FALSE))
-      }
-      
+      # only render if on barplot counts tab
       # SURVEY SUMMARY TABLE
-      output$table <- DT::renderDataTable({
-        if (selectPlot == "barSRSeason") {
-          DT::datatable(survey_sub_prj %>%
-            filter(!if_any(c(survey_GlobalID, season), is.na)) %>%
-            dplyr::select(survey_GlobalID, season) %>% 
-            dplyr::group_by(season) %>%
-            dplyr::count(season) %>%
-            dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)), options = list(scrollX = TRUE))
-        } else if (selectPlot == "barSRSeasonYear") {
-          DT::datatable(survey_sub_prj %>%
-            filter(!if_any(c(survey_GlobalID, season_year), is.na)) %>%
-            dplyr::select(survey_GlobalID, season_year) %>% 
-            dplyr::group_by(season_year) %>%
-            dplyr::count(season_year) %>%
-            dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)) %>%
-            tidyr::separate(season_year, into=c("season","year"),sep=" ") %>%
-            dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))) %>%
-            dplyr::arrange(season, year), options = list(scrollX = TRUE))
-        } else if (selectPlot == "barSRMonthYear") {
-          DT::datatable(survey_sub_prj %>%
-            filter(!if_any(c(survey_GlobalID, survey_date), is.na)) %>%
-            dplyr::select(survey_GlobalID, survey_date) %>% 
-            dplyr::mutate(survey_date = as.Date(survey_date, "%Y-%m-%d")) %>%
-            dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
-            dplyr::group_by(survey_yrmo) %>%
-            dplyr::count(survey_yrmo) %>%
-            dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)) %>%
-            tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
-            dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
-                                                        "Apr", "May", "Jun", 
-                                                        "Jul", "Aug", "Sep", 
-                                                        "Oct", "Nov", "Dec"))) %>%
-            dplyr::arrange(month, year), options = list(scrollX = TRUE))
-        } else if (selectPlot == "barSRSiteYear") {
-          DT::datatable(survey_sub_prj %>%
-                     filter(!if_any(c(survey_GlobalID, survey_date), is.na)) %>%
-                     dplyr::select(survey_GlobalID, site_id, survey_year) %>% 
-                     dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
-                     dplyr::group_by(sid_year) %>%
-                     dplyr::count(sid_year) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)) %>%
-                     tidyr::separate(sid_year, into=c("site_id","year"),sep=" ") %>%
-                     dplyr::left_join(as.data.frame(site_ids_spdf)) %>%
-                     dplyr::select(site_id, general_location_name, year, n, perc) %>%
-                     dplyr::arrange(site_id, year), options = list(scrollX = TRUE))
-        } else return(NULL)
-      })
-      
-      # SURVEY SUMMARY PLOTS
-      output$survey_summary_plot <- renderPlot({
-        if (selectPlot == "barSRSeason") {
-          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_season_count_barplot.png")) 
-          plotTitle = "Count of Survey Records by Season"
-          ggplot(survey_sub_prj %>%
-                   filter(!if_any(c(survey_GlobalID, season), is.na)) %>%
-                   dplyr::select(survey_GlobalID, season) %>% 
-                   dplyr::group_by(season) %>%
-                   dplyr::count(season) %>%
-                   dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)) %>%
-                   dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))),
-                 aes(season, n, fill=season)) +
-            geom_bar(stat="identity") +
-            xlab("Season") +
-            ylab("Count") +
-            ggtitle(plotTitle) +
-            viridis::scale_fill_viridis(discrete = T) +
-            theme(plot.title = element_text(hjust = 0.5)) +
-            theme(axis.text.x = element_text(angle=50, hjust=1)) +
-            theme(legend.position = "none") 
-          } else if (selectPlot == "barSRSeasonYear") {
-            #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_season_year_count_barplot.png"))
-            plotTitle = "Count of Survey Records by Season and Year"
-            ggplot(survey_sub_prj %>%
-                     filter(!if_any(c(survey_GlobalID, season_year), is.na)) %>%
-                     dplyr::select(survey_GlobalID, season_year) %>% 
-                     dplyr::group_by(season_year) %>%
-                     dplyr::count(season_year) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)) %>%
-                     tidyr::separate(season_year, into=c("season","year"),sep=" ") %>%
-                     dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))),
-                   aes(season, n)) +
-              geom_bar(aes(fill=year), position="stack", stat="identity") +
-              viridis::scale_fill_viridis(discrete = T) +
-              xlab("Season") +
-              ylab("Count") +
-              ggtitle(plotTitle) +
-              theme(plot.title = element_text(hjust = 0.5)) +
-              theme(axis.text.x = element_text(angle=50, hjust=1)) 
-          } else if (selectPlot == "barSRMonthYear") {
-            #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_month_year_count_barplot.png"))
-            plotTitle = "Count of Survey Records by Month and Year"
-            ggplot(survey_sub_prj %>%
-                     filter(!if_any(c(survey_GlobalID, survey_date), is.na)) %>%
-                     dplyr::select(survey_GlobalID, survey_date) %>% 
-                     dplyr::mutate(survey_date = as.Date(survey_date, "%Y-%m-%d")) %>%
-                     dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
-                     dplyr::group_by(survey_yrmo) %>%
-                     dplyr::count(survey_yrmo) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)) %>%
-                     tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
-                     dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
-                                                                 "Apr", "May", "Jun", 
-                                                                 "Jul", "Aug", "Sep", 
-                                                                 "Oct", "Nov", "Dec"))),
-                   aes(month, n)) +
-              geom_bar(aes(fill=year), position="stack", stat="identity") +
-              viridis::scale_fill_viridis(discrete = T) +
-              xlab("Month") +
-              ylab("Count") +
-              ggtitle(plotTitle) +
-              theme(plot.title = element_text(hjust = 0.5)) +
-              theme(axis.text.x = element_text(angle=50, hjust=1)) 
-          } else if (selectPlot == "barSRSiteYear") {
-            #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_sids_year_count_barplot.png"))
-            plotTitle = "Count of Survey Records by Site and Year"
-            ggplot(survey_sub_prj %>%
-                     filter(!if_any(c(survey_GlobalID, survey_date), is.na)) %>%
-                     dplyr::select(survey_GlobalID, site_id, survey_year) %>% 
-                     dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
-                     dplyr::group_by(sid_year) %>%
-                     dplyr::count(sid_year) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_sub_prj))*100, 2)) %>%
-                     tidyr::separate(sid_year, into=c("site_id","year"),sep=" "),
-                   aes(site_id, n)) +
-              geom_bar(aes(fill=year), position="stack", stat="identity") +
-              viridis::scale_fill_viridis(discrete = T) +
-              xlab("Site ID") +
-              ylab("Count") +
-              ggtitle(plotTitle) +
-              theme(plot.title = element_text(hjust = 0.5)) +
-              theme(axis.text.x = element_text(angle=50, hjust=1))
-          } else return(NULL)
-    }) 
-    }) 
-},
-options = list(height = 1000)
-)
-#outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_table.png"))
-#outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_map.png"))
-```
-
-
-# CREW SUMMARY
-
-## Percentage of survey records with associated crew information
-```{r}
-nrow(survey_sub)
-
-unique_survey_gids <- unique(survey_sub$survey_GlobalID)
-unique_envmeas_survey_gids <- unique(survey_crew_join$survey_GlobalID) 
-
-perc_gids<-(length(unique_envmeas_survey_gids)/length(unique_survey_gids))*100
-print(paste0("Percentage of survey records with crew information: ",round(perc_gids,2),"%"))
-
-```
-
-# ENVIRONMENTAL MEASUREMENTS SUMMARY
-
-* Jun, Jul, Aug (Summer)
-* Sep, Oct, Nov (Fall)
-* Dec, Jan, Feb (Winter)
-* Mar, Apr, May (Spring)
-* measurements per season, measurements per year, measurements per month
-* (count of survey records, count of filters, count of cores, count of environmental measurements), barcharts grouped or stacked by year per site
-
-## Count of empty or NA env_measurements
-```{r}
-# How do you want to treat NA?
-# subset the data by the NAs, explore them & their origin
-# can we programmatically fix it, or do we have to do it manually?
-
-# 0 rows blank or NA env_measurements
-
-nrow(survey_envmeas_join[survey_envmeas_join$env_measurements == "" | is.na(survey_envmeas_join$env_measurements),])
-
-```
-
-## Percentage of survey records with environmental measurements
-```{r}
-nrow(survey_sub)
-
-unique_survey_gids <- unique(survey_sub$survey_GlobalID)
-unique_envmeas_survey_gids <- unique(survey_envmeas_join$survey_GlobalID) 
-
-perc_gids<-(length(unique_envmeas_survey_gids)/length(unique_survey_gids))*100
-print(paste0("Percentage of survey records with environmental measurements: ",round(perc_gids,2),"%"))
-
-unique_survey_sids <- unique(survey_sub$site_id)
-unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
-
-perc_sids<-(length(unique_envmeas_sids)/length(unique_survey_sids))*100
-print(paste0("Percentage of site ids with environmental measurements: ",round(perc_sids,2),"%"))
-```
-
-## Map and table of unique Site IDs with environmental measurements
-```{r, echo=FALSE}
-shinyApp(
-  ui = fluidPage(
-    leafletOutput("map"),
-    DT::dataTableOutput('table')
-  ),
-  server = function(input, output) {
-    output$map <- renderLeaflet({
-      leaflet() %>%
-        addTiles() %>%
-        setView(lng=-68.5, lat=44.0, zoom=7)
-      })
-    observe({
-      rcdext_sids_all <- survey_envmeas_join %>%
-        filter(!if_any(c(site_id), is.na)) %>%
-        dplyr::select(site_id) %>%
-        dplyr::filter(site_id!="other") %>%
-        dplyr::distinct() %>%
-        dplyr::left_join(as.data.frame(site_ids_spdf)) %>%
-        dplyr::mutate(RecordsExist="Yes") %>%
-        dplyr::select(site_id, RecordsExist) %>%
-        dplyr::full_join(as.data.frame(site_ids_spdf)) %>%
-        dplyr::mutate(RecordsExist = ifelse(is.na(RecordsExist), "No", RecordsExist)) %>%
-        dplyr::select(site_id, general_location_name, RecordsExist, 
-                      projects, system_type, region_code, s123_filter_count, 
-                      s123_core_count, lon, lat) %>%
-        dplyr::arrange(site_id) 
-      
-      rcdext_sids_other <- survey_envmeas_join %>%
-        filter(!if_any(c(site_id), is.na)) %>%
-        dplyr::filter(site_id=="other") %>%
-        dplyr::filter(lat_manual>0 | long_manual>0) %>%
-        dplyr::select(site_id, general_location_name, projects, lat_manual, long_manual) %>%
-        dplyr::distinct() %>%
-        dplyr::rename(lat=lat_manual) %>%
-        dplyr::rename(lon=long_manual) %>%
-        dplyr::mutate(RecordsExist="Yes") %>%
-        dplyr::mutate(region_code="other") %>%
-        dplyr::mutate(system_type="other") %>%
-        dplyr::arrange(general_location_name)
-      
-      rcdext_sids_all_spdf <- rcdext_sids_all %>%
-        sf::st_as_sf(.,coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
-        dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
-        tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
-        sf::as_Spatial()
-      
-      if (nrow(rcdext_sids_other)>0) {
-        rcdext_sids_other_spdf<-rcdext_sids_other %>% 
-          sf::st_as_sf(.,coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
-          dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
-          tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
-          sf::as_Spatial()
-      }
-        
-      output$table <- DT::renderDataTable({
-        if (nrow(rcdext_sids_other)>0) {
-          DT::datatable(rbind(data.table(rcdext_sids_all), data.table(rcdext_sids_other), fill=TRUE), options = list(scrollX = TRUE))
-          } else {
-            DT::datatable(as.data.frame(rcdext_sids_all), options = list(scrollX = TRUE))
-            }
-        })
-      
-      sidsPopup <- sprintf(
-        "<strong>%s: %s</strong><br/>Has environmental measurements: %s<br/>%s",
-        rcdext_sids_all_spdf$site_id, rcdext_sids_all_spdf$general_location_name,
-        rcdext_sids_all_spdf$RecordsExist, rcdext_sids_all_spdf$projects) %>% 
-        lapply(htmltools::HTML)
-      
-      proxy <- leafletProxy("map")
-      proxy %>%
-        clearMarkers() %>%
-        clearShapes() %>%
-        clearPopups() %>%
-        clearControls() %>%
-        addPolygons(data=WBD_spdf_simplified, layerId=~region_cod,
-                    fillColor="grey", fillOpacity=0.5, 
-                    color="#444444", opacity=1,
-                    weight=1,  dashArray="3",
-                    group="Watersheds") %>%
-            addLabelOnlyMarkers(data=centers_wbd, lng=~x, lat=~y, label=~region_cod,
-                                labelOptions = labelOptions(noHide = TRUE, direction = 'middle', textOnly = TRUE),
-                                group="Watersheds") %>%
-            addCircleMarkers(data=rcdext_sids_all_spdf, layerId=~unique(site_id), 
-                             fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
-                             color="#444444", opacity=1, 
-                             weight=1, radius=5, stroke=TRUE,
-                             popup = sidsPopup,
-                             group="Site IDs") %>%
-        hideGroup("Watersheds") %>%
-        addLegend(data=rcdext_sids_all_spdf, pal=existsPal, values=~RecordsExist, opacity = 1)
-      if (nrow(rcdext_sids_other)>0) {
-        oSidsPopup <- sprintf(
-          "<strong>%s: %s</strong><br/>Has environmental measurements: %s<br/>%s",
-          rcdext_sids_all_spdf$site_id, rcdext_sids_all_spdf$general_location_name,
-          rcdext_sids_all_spdf$RecordsExist, rcdext_sids_all_spdf$projects) %>% 
-        lapply(htmltools::HTML)
-        proxy %>% addCircleMarkers(data=rcdext_sids_other_spdf, 
-                             fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
-                             color="#444444", opacity=1, 
-                             weight=1, radius=5, stroke=TRUE,
-                             popup = oSidsPopup,
-                             group="Other Sites") %>%
-          addLayersControl(
-              overlayGroups = c("Watersheds", "Site IDs", "Other Sites"),
-              options = layersControlOptions(collapsed = FALSE))
-      } else {
-        proxy %>%
-          addLayersControl(
-              overlayGroups = c("Watersheds", "Site IDs"),
-              options = layersControlOptions(collapsed = FALSE))
-      }
-
-            
-    }) 
-},
-options = list(height = 1000)
-)
-#outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_table.png"))
-#outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_map.png"))
-```
-
-
-## Summary of environmental measurements per year, month, and season
-```{r, echo=FALSE}
-shinyApp(
-  ui = fluidPage(
-    selectInput("selectedplot", 
-                label="Plot", 
-                choices=c(
-                  "Barplot Records per Season" = "barSRSeason",
-                  "Barplot Records per Season and Year" = "barSRSeasonYear",
-                  "Barplot Records per Month and Year" = "barSRMonthYear",
-                  "Barplot Records per Site and Year" = "barSRSiteYear",
-                  "Barplot Records per Site" = "barSRSite"), 
-      selected="barSRSeason"),
-    plotOutput("plot"),
-    DT::dataTableOutput('table')
-  ),
-  server = function(input, output) {
-    observe({
-      selectPlot<-input$selectedplot
-      output$table <- DT::renderDataTable({
-        if (selectPlot == "barSRSeason") {
-          DT::datatable(survey_envmeas_join %>%
-                          filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, season), is.na)) %>%
-                          dplyr::select(envmeas_GlobalID, season) %>% 
+      output$table_barplot_survey <- output$table_barplot_crew <- output$table_barplot_envmeas <- output$table_barplot_col <- output$table_barplot_filters <- output$table_barplot_subcores <- DT::renderDataTable({
+        if (selected_barplot == "barSRSeason") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::filter(!if_any(c(gid, season), is.na)) %>%
+                          dplyr::select(gid, season) %>% 
                           dplyr::group_by(season) %>%
                           dplyr::count(season) %>%
-                          dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)), options = list(scrollX = TRUE))
-        } else if (selectPlot == "barSRSeasonYear") {
-          DT::datatable(survey_envmeas_join %>%
-                          filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, season_year), is.na)) %>%
-                  dplyr::select(envmeas_GlobalID, season_year) %>% 
-                  dplyr::group_by(season_year) %>%
-                  dplyr::count(season_year) %>%
-                  dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)) %>%
-                  tidyr::separate(season_year, into=c("season","year"),sep=" ") %>%
-                  dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))) %>%
-                  dplyr::arrange(season, year), options = list(scrollX = TRUE))
-        } else if (selectPlot == "barSRMonthYear") {
-          DT::datatable(survey_envmeas_join %>%
-                          filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, survey_date), is.na)) %>%
-                          dplyr::select(envmeas_GlobalID, survey_date) %>% 
-                          dplyr::mutate(survey_date = as.Date(survey_date, "%Y-%m-%d")) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::filter(!if_any(c(gid, season), is.na))))*100, 2)) %>%
+                          dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))) %>%
+                          dplyr::arrange(season), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+        } else if (selected_barplot == "barSRSystem") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::filter(!if_any(c(gid, system_type), is.na)) %>%
+                          dplyr::select(gid, system_type) %>% 
+                          dplyr::group_by(system_type) %>%
+                          dplyr::count(system_type) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::filter(!if_any(c(gid, system_type), is.na))))*100, 2)) %>%
+                          dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%
+                          dplyr::arrange(system_type), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+        } else if (selected_barplot == "barSRSeasonYear") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::filter(!if_any(c(gid, season_year), is.na)) %>%
+                          dplyr::select(gid, season_year) %>% 
+                          dplyr::group_by(season_year) %>%
+                          dplyr::count(season_year) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::filter(!if_any(c(gid, season_year), is.na))))*100, 2)) %>%
+                          tidyr::separate(season_year, into=c("season","year"),sep=" ") %>%
+                          dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))) %>%
+                          dplyr::arrange(season, year) %>%
+                          dplyr::left_join(df_sub_prj %>%
+                                             dplyr::filter(!if_any(c(gid, season_year), is.na)) %>%
+                                             dplyr::select(gid, season_year) %>% 
+                                             dplyr::group_by(season_year) %>%
+                                             dplyr::count(season_year) %>% 
+                                             tidyr::separate(season_year, into=c("season","year"),sep=" ") %>%
+                                             dplyr::group_by(season) %>%
+                                             dplyr::summarize(
+                                               avg_n_season = mean(n, na.rm=TRUE),
+                                               sd_n_season = sd(n, na.rm=TRUE))) %>% 
+                          mutate_if(is.numeric, round, 2), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+        } else if (selected_barplot == "barSRSystemYear") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::filter(!if_any(c(gid, survey_year, system_type), is.na)) %>%
+                          dplyr::select(gid, survey_year, system_type) %>% 
+                          dplyr::mutate(sys_year=paste0(system_type, " ", survey_year)) %>%
+                          dplyr::group_by(sys_year) %>%
+                          dplyr::count(sys_year) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::filter(!if_any(c(gid, survey_year, system_type), is.na))))*100, 2)) %>%
+                          tidyr::separate(sys_year, into=c("system_type","year"),sep=" ") %>%
+                          dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%
+                          dplyr::arrange(system_type, year) %>%
+                          dplyr::left_join(df_sub_prj %>%
+                                             dplyr::filter(!if_any(c(gid, survey_year, system_type), is.na)) %>%
+                                             dplyr::select(gid, survey_year, system_type) %>% 
+                                             dplyr::mutate(sys_year=paste0(system_type, " ", survey_year)) %>%
+                                             dplyr::group_by(sys_year) %>%
+                                             dplyr::count(sys_year) %>%
+                                             tidyr::separate(sys_year, into=c("system_type","year"),sep=" ") %>%
+                                             dplyr::group_by(system_type) %>%
+                                             dplyr::summarize(
+                                               avg_n_system = mean(n, na.rm=TRUE),
+                                               sd_n_system = sd(n, na.rm=TRUE))) %>% 
+                          mutate_if(is.numeric, round, 2), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+          
+        } else if (selected_barplot == "barSRMonthYear") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+                          dplyr::select(gid, survey_date) %>% 
+                          dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
                           dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
                           dplyr::group_by(survey_yrmo) %>%
                           dplyr::count(survey_yrmo) %>%
-                          dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
                           tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
                           dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
                                                                       "Apr", "May", "Jun", 
                                                                       "Jul", "Aug", "Sep", 
                                                                       "Oct", "Nov", "Dec"))) %>%
-                          dplyr::arrange(month, year))
-        } else if (selectPlot == "barSRSiteYear") {
-          DT::datatable(survey_envmeas_join %>%
-                          filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, survey_date), is.na)) %>%
-                          dplyr::select(envmeas_GlobalID, site_id, survey_year) %>% 
+                          dplyr::arrange(month, year) %>%
+                          dplyr::left_join(df_sub_prj %>%
+                                             dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+                                             dplyr::select(gid, survey_date) %>% 
+                                             dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
+                                             dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
+                                             dplyr::group_by(survey_yrmo) %>%
+                                             dplyr::count(survey_yrmo) %>%
+                                             tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
+                                             dplyr::group_by(month) %>%
+                                             dplyr::summarize(
+                                               avg_n_month = mean(n, na.rm=TRUE),
+                                               sd_n_month = sd(n, na.rm=TRUE))) %>% 
+                          dplyr::mutate_if(is.numeric, round, 2), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+        } else if (selected_barplot == "barSRSiteYear") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+                          dplyr::select(gid, site_id, survey_year) %>% 
                           dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
                           dplyr::group_by(sid_year) %>%
                           dplyr::count(sid_year) %>%
-                          dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
                           tidyr::separate(sid_year, into=c("site_id","year"),sep=" ") %>%
-                          dplyr::arrange(site_id, year), options = list(scrollX = TRUE))
-        } else if (selectPlot == "barSRSite") {
-          DT::datatable(survey_envmeas_join %>%
-                          filter(!if_any(c(envmeas_GlobalID, site_id), is.na)) %>%
-                          dplyr::select(envmeas_GlobalID, site_id) %>% 
-                          dplyr::group_by(site_id) %>%
-                          dplyr::count(site_id) %>%
-                          dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)), options = list(scrollX = TRUE))
+                          dplyr::left_join(as.data.frame(site_ids_spdf)) %>%
+                          dplyr::select(site_id, general_location_name, year, n, perc) %>%
+                          dplyr::arrange(site_id, year) %>%
+                          dplyr::left_join(df_sub_prj %>%
+                                             dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+                                             dplyr::select(gid, site_id, survey_year) %>% 
+                                             dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
+                                             dplyr::group_by(sid_year) %>%
+                                             dplyr::count(sid_year) %>%
+                                             tidyr::separate(sid_year, into=c("site_id","year"),sep=" ") %>%
+                                             dplyr::group_by(site_id) %>%
+                                             dplyr::summarize(
+                                               avg_n_site = mean(n, na.rm=TRUE),
+                                               sd_n_site = sd(n, na.rm=TRUE))) %>% 
+                          dplyr::mutate_if(is.numeric, round, 2), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+        } else if (selected_barplot == "barFTSeason") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                          tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                          dplyr::select(gid, filter_type, season) %>% 
+                          dplyr::mutate(ft_st=paste0(filter_type, " ", season)) %>%
+                          dplyr::group_by(ft_st) %>%
+                          dplyr::count(ft_st) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                                             tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                          tidyr::separate(ft_st, into=c("filter_type","season"),sep=" ") %>%
+                          dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
+                          dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))) %>%
+                          dplyr::arrange(filter_type, season) %>%
+                          dplyr::left_join(df_sub_prj %>%
+                                             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                             tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                                             dplyr::select(gid, filter_type, season) %>% 
+                                             dplyr::mutate(ft_st=paste0(filter_type, " ", season)) %>%
+                                             dplyr::group_by(ft_st) %>%
+                                             dplyr::count(ft_st) %>%
+                                             tidyr::separate(ft_st, into=c("filter_type","season"),sep=" ") %>%
+                                             dplyr::group_by(season) %>%
+                                             dplyr::summarize(
+                                               avg_n_season = mean(n, na.rm=TRUE),
+                                               sd_n_season = sd(n, na.rm=TRUE))) %>% 
+                          dplyr::mutate_if(is.numeric, round, 2), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+        } else if (selected_barplot == "barFTSystem") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                          tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                          dplyr::select(gid, filter_type, system_type) %>% 
+                          dplyr::mutate(ft_st=paste0(filter_type, " ", system_type)) %>%
+                          dplyr::group_by(ft_st) %>%
+                          dplyr::count(ft_st) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                                             tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                          tidyr::separate(ft_st, into=c("filter_type","system_type"),sep=" ") %>%
+                          dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
+                          dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%
+                          dplyr::arrange(filter_type, system_type) %>%
+                          dplyr::left_join(df_sub_prj %>%
+                                             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                             tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                                             dplyr::select(gid, filter_type, system_type) %>% 
+                                             dplyr::mutate(ft_st=paste0(filter_type, " ", system_type)) %>%
+                                             dplyr::group_by(ft_st) %>%
+                                             dplyr::count(ft_st) %>%
+                                             tidyr::separate(ft_st, into=c("filter_type","system_type"),sep=" ") %>%
+                                             dplyr::group_by(system_type) %>%
+                                             dplyr::summarize(
+                                               avg_n_system = mean(n, na.rm=TRUE),
+                                               sd_n_system = sd(n, na.rm=TRUE))) %>% 
+                          dplyr::mutate_if(is.numeric, round, 2), 
+                        options = list(scrollX = TRUE, pageLength = 5))
+        } else if (selected_barplot == "barFTYear") {
+          DT::datatable(df_sub_prj %>%
+                          dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                          tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                          dplyr::select(gid, filter_type, survey_year) %>% 
+                          dplyr::mutate(ft_year=paste0(filter_type, " ", survey_year)) %>%
+                          dplyr::group_by(ft_year) %>%
+                          dplyr::count(ft_year) %>%
+                          dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                                             tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                          tidyr::separate(ft_year, into=c("filter_type","year"),sep=" ") %>%
+                          dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
+                          dplyr::arrange(filter_type, year) %>%
+                          dplyr::left_join(df_sub_prj %>%
+                                             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                             tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                                             dplyr::select(gid, filter_type, survey_year) %>% 
+                                             dplyr::mutate(ft_year=paste0(filter_type, " ", survey_year)) %>%
+                                             dplyr::group_by(ft_year) %>%
+                                             dplyr::count(ft_year) %>%
+                                             tidyr::separate(ft_year, into=c("filter_type","year"),sep=" ") %>%
+                                             dplyr::group_by(year) %>%
+                                             dplyr::summarize(
+                                               avg_n_year = mean(n, na.rm=TRUE),
+                                               sd_n_year = sd(n, na.rm=TRUE))) %>% 
+                          dplyr::mutate_if(is.numeric, round, 2), 
+                        options = list(scrollX = TRUE, pageLength = 5))
         } else return(NULL)
       })
-      output$plot <- renderPlot({
-        if (selectPlot == "barSRSeason") {
-          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_season_count_barplot.png"))
-          plotTitle = "Count of Environmental Measurements by Season"
-          ggplot(survey_envmeas_join %>%
-                   filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, season), is.na)) %>%
-                   dplyr::select(envmeas_GlobalID, season) %>% 
+      
+      # SURVEY BARPLOT COUNTS
+      output$barplot_survey <-output$barplot_crew <- output$barplot_envmeas <- output$barplot_col <- output$barplot_filters <- output$barplot_subcores <- renderPlot({
+        if (selected_barplot == "barSRSeason") {
+          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_season_count_barplot.png")) 
+          plotTitle = sprintf("Count of %s Records by Season", tools::toTitleCase(input$tab_barplots))
+          ggplot(df_sub_prj %>%
+                   dplyr::filter(!if_any(c(gid, season), is.na)) %>%
+                   dplyr::select(gid, season) %>% 
                    dplyr::group_by(season) %>%
                    dplyr::count(season) %>%
-                   dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)) %>%
-                   dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))),
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::filter(!if_any(c(gid, season), is.na))))*100, 2)) %>%
+                   dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))), 
                  aes(season, n, fill=season)) +
             geom_bar(stat="identity") +
             xlab("Season") +
             ylab("Count") +
             ggtitle(plotTitle) +
             viridis::scale_fill_viridis(discrete = T) +
-            theme(plot.title = element_text(hjust = 0.5)) +
-            theme(axis.text.x = element_text(angle=50, hjust=1)) +
+            transparent_theme +
+            #theme(axis.text.x = element_text(angle=50, hjust=1)) +
             theme(legend.position = "none") 
-          } else if (selectPlot == "barSRSeasonYear") {
-            plotTitle = "Count of Environmental Measurements by Season and Year"
-            #outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_season_year_count_barplot.png"))
-            ggplot(survey_envmeas_join %>%
-                     filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, season_year), is.na)) %>%
-                     dplyr::select(envmeas_GlobalID, season_year) %>% 
-                     dplyr::group_by(season_year) %>%
-                     dplyr::count(season_year) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)) %>%
-                     tidyr::separate(season_year, into=c("season","year"),sep=" ") %>%
-                     dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))),
-                   aes(season, n)) +
-              geom_bar(aes(fill=year), position="stack", stat="identity") +
-              viridis::scale_fill_viridis(discrete = T) +
-              xlab("Season") +
-              ylab("Count") +
+        } else if (selected_barplot == "barSRSystem") {
+          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_season_count_barplot.png")) 
+          plotTitle = sprintf("Count of %s Records by System", tools::toTitleCase(input$tab_barplots))
+          ggplot(df_sub_prj %>%
+                   dplyr::filter(!if_any(c(gid, system_type), is.na)) %>%
+                   dplyr::select(gid, system_type) %>% 
+                   dplyr::group_by(system_type) %>%
+                   dplyr::count(system_type) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::filter(!if_any(c(gid, system_type), is.na))))*100, 2)) %>%
+                   dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))), 
+                 aes(system_type, n, fill=system_type)) +
+            geom_bar(stat="identity") +
+            xlab("System") +
+            ylab("Count") +
+            ggtitle(plotTitle) +
+            viridis::scale_fill_viridis(discrete = T) +
+            transparent_theme +
+            #theme(axis.text.x = element_text(angle=50, hjust=1)) +
+            theme(legend.position = "none") 
+        } else if (selected_barplot == "barSRSeasonYear") {
+          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_season_year_count_barplot.png"))
+          plotTitle = sprintf("Count of %s Records by Season and Year", tools::toTitleCase(input$tab_barplots))
+          ggplot(df_sub_prj %>%
+                   dplyr::filter(!if_any(c(gid, season_year), is.na)) %>%
+                   dplyr::select(gid, season_year) %>% 
+                   dplyr::group_by(season_year) %>%
+                   dplyr::count(season_year) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::filter(!if_any(c(gid, season_year), is.na))))*100, 2)) %>%
+                   tidyr::separate(season_year, into=c("season","year"),sep=" ") %>%
+                   dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))),
+                 aes(season, n)) +
+            geom_bar(aes(fill=year), position="stack", stat="identity") +
+            viridis::scale_fill_viridis(discrete = T) +
+            xlab("Season") +
+            ylab("Count") +
+            labs(fill="") +
+            ggtitle(plotTitle) +
+            #theme(axis.text.x = element_text(angle=50, hjust=1)) +
+            theme(legend.position="top", legend.box = "horizontal") +
+            transparent_theme 
+        } else if (selected_barplot == "barSRSystemYear") {
+          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_season_year_count_barplot.png"))
+          plotTitle = sprintf("Count of %s Records by System and Year", tools::toTitleCase(input$tab_barplots))
+          ggplot(df_sub_prj %>%
+                   dplyr::filter(!if_any(c(gid, survey_year, system_type), is.na)) %>%
+                   dplyr::select(gid, survey_year, system_type) %>% 
+                   dplyr::mutate(sys_year=paste0(system_type, " ", survey_year)) %>%
+                   dplyr::group_by(sys_year) %>%
+                   dplyr::count(sys_year) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::filter(!if_any(c(gid, survey_year, system_type), is.na))))*100, 2)) %>%
+                   tidyr::separate(sys_year, into=c("system_type","year"),sep=" ") %>%
+                   dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))),
+                 aes(system_type, n)) +
+            geom_bar(aes(fill=year), position="stack", stat="identity") +
+            viridis::scale_fill_viridis(discrete = T) +
+            xlab("System") +
+            ylab("Count") +
+            labs(fill="") +
+            ggtitle(plotTitle) +
+            theme(legend.position="top", legend.box = "horizontal") +
+            #theme(axis.text.x = element_text(angle=50, hjust=1)) +
+            transparent_theme 
+        } else if (selected_barplot == "barSRMonthYear") {
+          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_month_year_count_barplot.png"))
+          plotTitle = sprintf("Count of %s Records by Month and Year", tools::toTitleCase(input$tab_barplots))
+          ggplot(df_sub_prj %>%
+                   dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+                   dplyr::select(gid, survey_date) %>% 
+                   dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
+                   dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
+                   dplyr::group_by(survey_yrmo) %>%
+                   dplyr::count(survey_yrmo) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
+                   tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
+                   dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
+                                                               "Apr", "May", "Jun", 
+                                                               "Jul", "Aug", "Sep", 
+                                                               "Oct", "Nov", "Dec"))),
+                 aes(month, n)) +
+            geom_bar(aes(fill=year), position="stack", stat="identity") +
+            viridis::scale_fill_viridis(discrete = T) +
+            xlab("Month") +
+            ylab("Count") +
+            labs(fill="") +
+            ggtitle(plotTitle) +
+            theme(legend.position="top", legend.box = "horizontal") +
+            #theme(axis.text.x = element_text(angle=50, hjust=1)) +
+            transparent_theme
+        } else if (selected_barplot == "barSRSiteYear") {
+          #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_sids_year_count_barplot.png"))
+          plotTitle = sprintf("Count of %s Records by Site and Year", tools::toTitleCase(input$tab_barplots))
+          ggplot(df_sub_prj %>%
+                   dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+                   dplyr::select(gid, site_id, survey_year) %>% 
+                   dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
+                   dplyr::group_by(sid_year) %>%
+                   dplyr::count(sid_year) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
+                   tidyr::separate(sid_year, into=c("site_id","year"),sep=" "),
+                 aes(site_id, n)) +
+            geom_bar(aes(fill=year), position="stack", stat="identity") +
+            viridis::scale_fill_viridis(discrete = T) +
+            xlab("Site ID") +
+            ylab("Count") +
+            labs(fill="") +
+            ggtitle(plotTitle) +
+            theme(axis.text.x = element_text(angle=50, hjust=1)) +
+            theme(legend.position="top", legend.box = "horizontal") +
+            transparent_theme
+        } else if (selected_barplot == "barFTSeason") {
+          plotTitle = sprintf("Count of %s by Season", selected_filtertype_fmt)
+          ggplot(df_sub_prj %>%
+                   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                   tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                   dplyr::select(gid, filter_type, season) %>% 
+                   dplyr::mutate(ft_st=paste0(filter_type, " ", season)) %>%
+                   dplyr::group_by(ft_st) %>%
+                   dplyr::count(ft_st) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                                      tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                   tidyr::separate(ft_st, into=c("filter_type","season"),sep=" ") %>%
+                   dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
+                   dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))),
+                 aes(season, n)) +
+            geom_bar(aes(fill=filter_type), position="stack", stat="identity") +
+            viridis::scale_fill_viridis(discrete = T) +
+            xlab("Season") +
+            ylab("Count") +
+            labs(fill="") +
+            ggtitle(plotTitle) +
+            theme(legend.position="top", legend.box = "horizontal") +
+            transparent_theme
+        } else if (selected_barplot == "barFTSystem") {
+          plotTitle = sprintf("Count of %s by System", selected_filtertype_fmt)
+          ggplot(df_sub_prj %>%
+                   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                   tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                   dplyr::select(gid, filter_type, system_type) %>% 
+                   dplyr::mutate(ft_st=paste0(filter_type, " ", system_type)) %>%
+                   dplyr::group_by(ft_st) %>%
+                   dplyr::count(ft_st) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                                      tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                   tidyr::separate(ft_st, into=c("filter_type","system_type"),sep=" ") %>%
+                   dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
+                   dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))),
+                 aes(system_type, n)) +
+            geom_bar(aes(fill=filter_type), position="stack", stat="identity") +
+            viridis::scale_fill_viridis(discrete = T) +
+            xlab("System") +
+            ylab("Count") +
+            labs(fill="") +
+            ggtitle(plotTitle) +
+            transparent_theme +
+            theme(legend.position="top", legend.box = "horizontal")
+            
+        } else if (selected_barplot == "barFTYear") {
+          plotTitle = sprintf("Count of %s by Year", selected_filtertype_fmt)
+          ggplot(df_sub_prj %>%
+                   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                   tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                   dplyr::select(gid, filter_type, survey_year) %>% 
+                   dplyr::mutate(ft_year=paste0(filter_type, " ", survey_year)) %>%
+                   dplyr::group_by(ft_year) %>%
+                   dplyr::count(ft_year) %>%
+                   dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
+                                                      dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
+                                                      tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                   tidyr::separate(ft_year, into=c("filter_type","year"),sep=" ") %>%
+                   dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))),
+                 aes(filter_type, n)) +
+            geom_bar(aes(fill=year), position="stack", stat="identity") +
+            viridis::scale_fill_viridis(discrete = T) +
+            xlab(selected_filtertype_fmt) +
+            ylab("Count") +
+            labs(fill="") +
+            ggtitle(plotTitle) +
+            theme(legend.position="top", legend.box = "horizontal") +
+            transparent_theme
+        } else return(NULL)
+      }, bg="transparent") 
+    }
+    if (input$navbar == "Summary Plots") {
+      if (input$tab_plots == "Env Measurements") {
+        custom_height=function() input$height_envmeas
+        depth_var<-"envmeas_depth"
+        selected_var_plots<-input$plots_selectedvar_envmeas
+        selected_var_plots_fmt<-tools::toTitleCase(gsub("_", " ",selected_var_plots))
+        selected_plot<-input$plots_selected_envmeas
+        start_range<-input$range_start_envmeas
+        end_range<-input$range_end_envmeas
+        df_summaryplot <- survey_envmeas_join %>%
+          dplyr::filter(!if_any(c(selected_var_plots, site_id), is.na)) %>%
+          dplyr::select(gid, survey_date, projects, system_type, 
+                        site_id, other_site_id, general_location_name, 
+                        supervisor, username, recorder_first_name, recorder_last_name, 
+                        envmeas_date, envmeas_depth, envmeas_instrument, 
+                        ctd_filename, ctd_notes, ysi_filename, ysi_model, ysi_serial_number, ysi_notes, secchi_depth,
+                        secchi_notes, niskin_number, niskin_notes, other_instruments, env_measurements, flow_rate,
+                        water_temp, salinity, ph, par1, par2, turbidity,
+                        conductivity, do, pheophytin, chla, no3no2, no2,
+                        nh4, phosphate, bottom_substrate, lab_date, envmeas_notes,
+                        lat_manual, long_manual, 
+                        survey_month, survey_year, season, season_year, survey_GlobalID)
+      }
+      if (input$tab_plots == "Collections") {
+        custom_height=function() input$height_col
+        selected_plot_coltype<-input$plots_selected_coltype
+        selected_plot<-input$plots_selected_col
+        if (selected_plot_coltype == "water_sample"){
+          depth_var<-selected_var_plots<-"water_depth"
+          selected_var_plots_fmt<-tools::toTitleCase(gsub("_", " ",selected_var_plots))
+          start_range<-input$range_start_col
+          end_range<-input$range_end_col
+          df_summaryplot <- survey_collection_join %>%
+            dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
+            dplyr::filter(!if_any(c(survey_GlobalID, gid, collection_type, selected_var_plots), is.na)) %>%
+            dplyr::filter(collection_type==selected_plot_coltype) %>%
+            dplyr::select(gid, collection_type, survey_date, projects, 
+                          system_type, site_id, other_site_id, general_location_name, 
+                          supervisor, username, recorder_first_name, recorder_last_name,
+                          water_collect_date, water_control, water_control_type, water_depth,
+                          water_vessel_material, water_vessel_color, water_vessel_label, 
+                          water_collect_notes, was_filtered, lat_manual, long_manual,
+                          survey_month, survey_year, season, season_year, 
+                          survey_GlobalID)
+        } else if (selected_plot_coltype == "sed_sample"){
+          depth_var<-selected_var_plots<-"depth_core_collected"
+          selected_var_plots_fmt<-tools::toTitleCase(gsub("_", " ",selected_var_plots))
+          start_range<-input$range_start_col
+          end_range<-input$range_end_col
+          df_summaryplot <- survey_collection_join %>%
+            dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
+            filter(!if_any(c(survey_GlobalID, gid, collection_type, selected_var_plots), is.na)) %>%
+            dplyr::filter(collection_type==selected_plot_coltype) %>%
+            dplyr::select(gid, collection_type, survey_date, projects, 
+                          system_type, site_id, other_site_id, general_location_name, 
+                          supervisor, username, recorder_first_name, recorder_last_name, 
+                          core_datetime_start, core_datetime_end,core_label,core_control,
+                          core_method,depth_core_collected,core_length,core_diameter,
+                          core_notes,subcores_taken,purpose_other_cores, lat_manual, long_manual,
+                          survey_month, survey_year, season, season_year,
+                          survey_GlobalID)
+        }
+      }
+      df_inrange <- reactive({
+        df_summaryplot %>%
+          dplyr::filter(!!as.symbol(selected_var_plots)>=start_range & !!as.symbol(selected_var_plots)<=end_range)
+      })
+      
+      unique_survey_sids <- unique(survey_sub$site_id)
+      unique_sids <- unique(df_summaryplot$site_id)
+      unique_sids_vars <- df_summaryplot %>%
+        dplyr::select(site_id) %>%
+        dplyr::distinct()
+      
+      perc_sids<-round((nrow(unique_sids_vars)/length(unique_survey_sids))*100,2)
+      perc_sids_var<-round((nrow(unique_sids_vars)/length(unique_sids))*100,2)
+      
+      quant_str<-quantile(df_summaryplot[[selected_var_plots]], na.rm=TRUE)
+      min_str<-min(df_summaryplot[[selected_var_plots]], na.rm=TRUE)
+      max_str<-max(df_summaryplot[[selected_var_plots]], na.rm=TRUE)
+      
+      quant_str[2]
+      
+      output$plots_text_envmeas <- output$plots_text_col <-renderUI({
+        str1 <- sprintf("Percentage of Site IDs with %s measurements: %g %%", selected_var_plots_fmt, perc_sids)
+        str2 <- sprintf("Percentage of Site IDs with %s that also have %s: %g %%", input$tab_plots, selected_var_plots_fmt, perc_sids_var)
+        str3 <- sprintf("Min (%s): %g", selected_var_plots_fmt, min_str)
+        str4 <- sprintf("Max (%s): %g", selected_var_plots_fmt, max_str)
+        str5 <- sprintf("Quantiles (%s): 0%% %s, 25%% %s, 50%% %s, 75%% %s, 100%% %s", selected_var_plots_fmt, quant_str[1], quant_str[2], quant_str[3], quant_str[4], quant_str[5])
+        HTML(paste(str1, str2, str3, str4, str5,  sep = '<br/>'))
+      })
+      output$plots_envmeas <- output$plots_col <- renderPlot(
+        height = custom_height,
+        {
+          if (selected_plot == "histVar") {
+            plotTitle=sprintf("%s Distribution", selected_var_plots_fmt)
+            # check distribution
+            ggplot(df_inrange(),
+                   aes_string(x=selected_var_plots)) + 
+              ylab("Density") +
+              xlab(selected_var_plots_fmt) +
               ggtitle(plotTitle) +
-              theme(plot.title = element_text(hjust = 0.5)) +
-              theme(axis.text.x = element_text(angle=50, hjust=1)) 
-          } else if (selectPlot == "barSRMonthYear") {
-            #outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_month_year_count_barplot.png"))
-            plotTitle = "Count of Environmental Measurements by Month and Year"
-            ggplot(survey_envmeas_join %>%
-                     filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, survey_date), is.na)) %>%
-                     dplyr::select(envmeas_GlobalID, survey_date) %>% 
-                     dplyr::mutate(survey_date = as.Date(survey_date, "%Y-%m-%d")) %>%
-                     dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
-                     dplyr::group_by(survey_yrmo) %>%
-                     dplyr::count(survey_yrmo) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)) %>%
-                     tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
+              geom_histogram(aes(y=..density..), colour="black", fill="white") +
+              geom_density(alpha=.2, fill="#FF6666") +
+              transparent_theme
+          } else if (selected_plot == "boxSiteMonth") {
+            plotTitle=sprintf("%s by Site and Month", selected_var_plots_fmt)
+            ggplot(df_inrange() %>%
+                     dplyr::filter(!if_any(c(selected_var_plots, site_id), is.na)) %>% 
+                     dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
+                     dplyr::mutate(month = format(survey_date, format="%b")) %>%
                      dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
                                                                  "Apr", "May", "Jun", 
                                                                  "Jul", "Aug", "Sep", 
-                                                                 "Oct", "Nov", "Dec"))),
-                   aes(month, n)) +
-              geom_bar(aes(fill=year), position="stack", stat="identity") +
-              viridis::scale_fill_viridis(discrete = T) +
-              xlab("Month") +
-              ylab("Count") +
-              ggtitle(plotTitle) +
-              theme(plot.title = element_text(hjust = 0.5)) +
-              theme(axis.text.x = element_text(angle=50, hjust=1)) 
-
-          } else if (selectPlot == "barSRSiteYear") {
-            #outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_year_count_barplot.png"))
-            plotTitle = "Count of Environmental Measurements by Site and Year"
-            ggplot(survey_envmeas_join %>%
-                     filter(!if_any(c(survey_GlobalID, envmeas_GlobalID, survey_date), is.na)) %>%
-                     dplyr::select(envmeas_GlobalID, site_id, survey_year) %>% 
-                     dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
-                     dplyr::group_by(sid_year) %>%
-                     dplyr::count(sid_year) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)) %>%
-                     tidyr::separate(sid_year, into=c("site_id","year"),sep=" ") %>%
-                     dplyr::arrange(site_id, year),
-                   aes(site_id, n)) +
-              geom_bar(aes(fill=year), position="stack", stat="identity") +
-              viridis::scale_fill_viridis(discrete = T) +
+                                                                 "Oct", "Nov", "Dec"))) %>%
+                     dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))),
+                   aes_string(x="site_id", y=selected_var_plots, fill="system_type")) + 
+              geom_boxplot() +
+              ylab(selected_var_plots_fmt) +
               xlab("Site ID") +
-              ylab("Count") +
+              labs(fill="") +
+              facet_grid(month ~ .) +
               ggtitle(plotTitle) +
-              theme(plot.title = element_text(hjust = 0.5)) +
-              theme(axis.text.x = element_text(angle=50, hjust=1))
-          } else if (selectPlot == "barSRSite") {
-            #outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_count_barplot.png"))
-            plotTitle = "Count of Environmental Measurements by Site"
-            ggplot(survey_envmeas_join %>%
-                     filter(!if_any(c(envmeas_GlobalID, site_id), is.na)) %>%
-                     dplyr::select(envmeas_GlobalID, site_id) %>% 
-                     dplyr::group_by(site_id) %>%
-                     dplyr::count(site_id) %>%
-                     dplyr::mutate(perc=round((n/nrow(survey_envmeas_join))*100, 2)),
-                   aes(site_id, n, fill=site_id)) +
-              geom_bar(stat="identity") +
-              viridis::scale_fill_viridis(discrete = T) +
-              xlab("Site ID") +
-              ylab("Count") +
-              ggtitle(plotTitle) +
-              theme(plot.title = element_text(hjust = 0.5)) +
+              theme(legend.position="top", legend.box = "horizontal") +
               theme(axis.text.x = element_text(angle=50, hjust=1)) +
+              transparent_theme
+          } else if (selected_plot == "boxSystem") {
+            plotTitle=sprintf("%s by System", selected_var_plots_fmt)
+            ggplot(df_inrange() %>%
+                     dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))), 
+                   aes_string(x="system_type", y=selected_var_plots, fill="system_type")) + 
+              geom_boxplot() +
+              ylab(selected_var_plots_fmt) +
+              xlab("System") +
+              ggtitle(plotTitle) +
+              #theme(axis.text.x = element_text(angle=50, hjust=1)) +
+              transparent_theme +
               theme(legend.position = "none") 
+          } else if (selected_plot == "boxSite") {
+            plotTitle=sprintf("%s by Site", selected_var_plots_fmt)
+            ggplot(df_inrange() %>%
+                     dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))), 
+                   aes_string(x="site_id", y=selected_var_plots, fill="system_type")) + 
+              geom_boxplot() +
+              ylab(selected_var_plots_fmt) +
+              xlab("Site ID") +
+              labs(fill="") +
+              ggtitle(plotTitle) +
+              theme(legend.position="top", legend.box = "horizontal") +
+              theme(axis.text.x = element_text(angle=50, hjust=1)) +
+              transparent_theme
+          } else if (selected_plot == "splotDepthMoSys") {
+            #fileName="s123_envmeas_wtemp_system_month_depth_splot"
+            plotTitle=sprintf("%s by System, Depth, and Month", selected_var_plots_fmt)
+            ggplot(df_inrange() %>%
+                     dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%           
+                     dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
+                     dplyr::mutate(month = format(survey_date, format="%b")) %>%
+                     dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
+                                                                 "Apr", "May", "Jun", 
+                                                                 "Jul", "Aug", "Sep", 
+                                                                 "Oct", "Nov", "Dec"))), 
+                   aes_string(x="month", y=depth_var, color=selected_var_plots)) +
+              geom_point(size=2) +
+              geom_jitter(width = 0.25, height = 2) +
+              scale_x_discrete(name ="Month") +
+              scale_y_continuous(name="Depth (M)") +
+              labs(color=selected_var_plots_fmt) +
+              ggtitle(plotTitle) +
+              theme(legend.position="top", legend.box = "horizontal") +
+              transparent_theme +
+              facet_grid(system_type ~ .)
           } else return(NULL)
-        }) 
-    }) 
-},
-options = list(height = 1000)
+        }, bg="transparent")
+      output$table_plots_envmeas  <- output$table_plots_col  <- DT::renderDataTable({
+        DT::datatable(df_inrange(), options = list(scrollX = TRUE, pageLength = 5))
+      })
+      
+    }
+  }) 
+    },
+  options = list(height = 1000)
 )
+#outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_table.png"))
+#outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_map.png"))
 ```
 
 
-
-# ENVIRONMENTAL MEASUREMENTS: MEASUREMENT DEPTH
-Measurement depth is recorded in meters (M).
-## Percentage of Site IDs with environmental depth measurements
-```{r}
-
-```
-
-
-## Map of unique Site IDs with environmental measurements (depth, water temp, salinity, turbidity, conductivity, do, par1, par2)
-```{r, echo=FALSE}
-shinyApp(
-  ui = fluidPage(
-    selectInput("selectedvar", 
-                label="Variable", 
-                choices=c(
-                  "Measurement Depth" = "envmeas_depth",
-                  "Water Temperature" = "water_temp",
-                  "Salinity" = "salinity",
-                  "Turbidity" = "turbidity",
-                  "Conductivity" = "conductivity",
-                  "Dissolved Oxygen" = "do",
-                  "PAR1" = "par1",
-                  "PAR2" = "par2"),
-      selected="envmeas_depth"),
-    leafletOutput("map"),
-    DT::dataTableOutput('table')
-  ),
-  server = function(input, output) {
-    output$map <- renderLeaflet({
-      leaflet() %>%
-        addTiles() %>%
-        setView(lng=-68.5, lat=44.0, zoom=7)
-      })
-    observe({
-      selectVar<-input$selectedvar
-      
-      rcdext_sids_all <- survey_envmeas_join %>%
-        filter(!if_any(c(selectVar, site_id), is.na)) %>%
-        dplyr::select(site_id) %>%
-        dplyr::filter(site_id!="other") %>%
-        dplyr::distinct() %>%
-        dplyr::left_join(as.data.frame(site_ids_spdf)) %>%
-        dplyr::mutate(RecordsExist="Yes") %>%
-        dplyr::select(site_id, RecordsExist) %>%
-        dplyr::full_join(as.data.frame(site_ids_spdf)) %>%
-        dplyr::mutate(RecordsExist = ifelse(is.na(RecordsExist), "No", RecordsExist)) %>%
-        dplyr::select(site_id, general_location_name, RecordsExist, 
-                      projects, system_type, region_code, s123_filter_count, 
-                      s123_core_count, lon, lat) %>%
-        dplyr::arrange(site_id) 
-      
-      rcdext_sids_other <- survey_envmeas_join %>%
-        filter(!if_any(c(selectVar, site_id), is.na)) %>%
-        dplyr::filter(site_id=="other") %>%
-        dplyr::filter(lat_manual>0 | long_manual>0) %>%
-        dplyr::select(site_id, general_location_name, projects, lat_manual, long_manual) %>%
-        dplyr::distinct() %>%
-        dplyr::rename(lat=lat_manual) %>%
-        dplyr::rename(lon=long_manual) %>%
-        dplyr::mutate(RecordsExist="Yes") %>%
-        dplyr::mutate(region_code="other") %>%
-        dplyr::mutate(system_type="other") %>%
-        dplyr::arrange(general_location_name)
-      
-      rcdext_sids_all_spdf <- rcdext_sids_all %>%
-        sf::st_as_sf(.,coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
-        dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
-        tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
-        sf::as_Spatial()
-      
-      if (nrow(rcdext_sids_other)>0) {
-        rcdext_sids_other_spdf<-rcdext_sids_other %>% 
-          sf::st_as_sf(.,coords=c('lon', 'lat'), crs=WGS84_SRID) %>% # st_as_sf combines fields into geometry field to create sf object
-          dplyr::mutate(geom = gsub(geometry, pattern="(\\))|(\\()|c",replacement = "")) %>% # remove geometry characters
-          tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
-          sf::as_Spatial()
-      }
-        
-
-      output$table <- DT::renderDataTable({
-        if (nrow(rcdext_sids_other)>0) {
-          DT::datatable(rbind(data.table(rcdext_sids_all), data.table(rcdext_sids_other), fill=TRUE), options = list(scrollX = TRUE))
-         
-          } else {
-             DT::datatable(as.data.frame(rcdext_sids_all), options = list(scrollX = TRUE))
-          
-            }
-        })
-      
-      sidsPopup <- sprintf(
-        "<strong>%s: %s</strong><br/>Has environmental %s measurements: %s<br/>%s",
-        rcdext_sids_all_spdf$site_id, rcdext_sids_all_spdf$general_location_name, selectVar,
-        rcdext_sids_all_spdf$RecordsExist, rcdext_sids_all_spdf$projects) %>% 
-        lapply(htmltools::HTML)
-      
-      oSidsPopup <- sprintf(
-        "<strong>%s: %s</strong><br/>Has environmental %s measurements: %s<br/>%s",
-        rcdext_sids_all_spdf$site_id, rcdext_sids_all_spdf$general_location_name, selectVar,
-        rcdext_sids_all_spdf$RecordsExist, rcdext_sids_all_spdf$projects) %>% 
-        lapply(htmltools::HTML)
-      
-      proxy <- leafletProxy("map")
-      proxy %>%
-        clearMarkers() %>%
-        clearShapes() %>%
-        clearPopups() %>%
-        clearControls() %>%
-        addPolygons(data=WBD_spdf_simplified, layerId=~region_cod,
-                    fillColor="grey", fillOpacity=0.5, 
-                    color="#444444", opacity=1,
-                    weight=1,  dashArray="3",
-                    group="Watersheds") %>%
-            addLabelOnlyMarkers(data=centers_wbd, lng=~x, lat=~y, label=~region_cod,
-                                labelOptions = labelOptions(noHide = TRUE, direction = 'middle', textOnly = TRUE),
-                                group="Watersheds") %>%
-            addCircleMarkers(data=rcdext_sids_all_spdf, layerId=~unique(site_id), 
-                             fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
-                             color="#444444", opacity=1, 
-                             weight=1, radius=5, stroke=TRUE,
-                             popup = sidsPopup,
-                             group="Site IDs") %>%
-        hideGroup("Watersheds") %>%
-        addLegend(data=rcdext_sids_all_spdf, pal=existsPal, values=~RecordsExist, opacity = 1)
-      if (nrow(rcdext_sids_other)>0) {
-        proxy %>% addCircleMarkers(data=rcdext_sids_other_spdf, 
-                             fillColor=~existsPal(RecordsExist), fillOpacity=0.8, 
-                             color="#444444", opacity=1, 
-                             weight=1, radius=5, stroke=TRUE,
-                             popup = oSidsPopup,
-                             group="Other Sites") %>%
-          addLayersControl(
-              overlayGroups = c("Watersheds", "Site IDs", "Other Sites"),
-              options = layersControlOptions(collapsed = FALSE))
-      } else {
-        proxy %>%
-          addLayersControl(
-              overlayGroups = c("Watersheds", "Site IDs"),
-              options = layersControlOptions(collapsed = FALSE))
-      }
-
-            
-    }) 
-},
-options = list(height = 1000)
-)
-```
-
-
-# Environmental Measurements Summary
-```{r, echo=FALSE}
-shinyApp(
-  ui = fluidPage(
-      sidebarLayout(
-        sidebarPanel(
-          selectInput("selectedvar", 
-                      label="Variable", 
-                      choices=c(
-                        "Measurement Depth" = "envmeas_depth",
-                        "Water Temperature" = "water_temp",
-                        "Salinity" = "salinity",
-                        "Turbidity" = "turbidity",
-                        "Conductivity" = "conductivity",
-                        "Dissolved Oxygen" = "do",
-                        "PAR1" = "par1",
-                        "PAR2" = "par2"),
-                      selected="envmeas_depth"),
-          selectInput("selectedplot", 
-                    label="Plot", 
-                    choices=c(
-                      "Histogram" = "histEnvMeas",
-                      "Boxplot by Site and Month" = "boxSiteMonth",
-                      "Boxplot by System" = "boxSystem",
-                      "Boxplot by Site" = "boxSite",
-                      "Scatterplot by Depth, Month, and System"= "splotDepthMoSys"), 
-                    selected="histEnvMeas"),
-          #sliderInput("rangeSlider", label = "Variable Range", min = 0, max = 100000, 
-          #            value = c(0, 100), sep=""),
-          numericInput("rangeStart","Variable Start", value = 0),
-          numericInput("rangeEnd", "Variable End", value = 100),
-          htmlOutput("text")
-          ),
-        mainPanel(
-          plotOutput("plot"),
-          DT::dataTableOutput('table')
-      )
-    )
-  ),
-  server = function(input, output) {
-    
-      envMeasInRange <- reactive({
-      selectVar<-input$selectedvar
-      #varRange<-input$rangeSlider
-      survey_envmeas_join %>%
-        dplyr::filter(!if_any(c(selectVar, site_id), is.na)) %>%
-        #dplyr::filter(!!as.symbol(selectVar)>=varRange[1] & !!as.symbol(selectVar)<=varRange[2])
-        dplyr::filter(!!as.symbol(selectVar)>=input$rangeStart & !!as.symbol(selectVar)<=input$rangeEnd)
-      })
-  
-    observe({
-      selectVar<-input$selectedvar
-      selectPlot<-input$selectedplot
-    
-      unique_survey_sids <- unique(survey_sub$site_id)
-      unique_envmeas_sids <- unique(survey_envmeas_join$site_id)
-      unique_envmeas_sids_envmeas <- survey_envmeas_join %>%
-        filter(!if_any(c(selectVar, site_id), is.na)) %>%
-        dplyr::select(site_id) %>%
-        dplyr::distinct()
-
-      perc_sids<-round((nrow(unique_envmeas_sids_envmeas)/length(unique_survey_sids))*100,2)
-    
-      perc_sids_envmeas<-round((nrow(unique_envmeas_sids_envmeas)/length(unique_envmeas_sids))*100,2)
-      
-      quant_str<-quantile(survey_envmeas_join[[selectVar]], na.rm=TRUE)
-      min_str<-min(survey_envmeas_join[[selectVar]], na.rm=TRUE)
-      max_str<-max(survey_envmeas_join[[selectVar]], na.rm=TRUE)
-      
-      quant_str[2]
-
-      output$text<-renderUI({
-        str1 <-sprintf("Percentage of site ids with %s measurements: %g %%", selectVar, perc_sids)
-        str2 <- sprintf("Percentage of site ids with environmental measurements that also have %s: %g %%", selectVar, perc_sids_envmeas)
-        str3 <- sprintf("Min (%s): %g", selectVar, min_str)
-        str4 <- sprintf("Max (%s): %g", selectVar, max_str)
-        str5 <- sprintf("Quantiles (%s): 0%% %s, 25%% %s, 50%% %s, 75%% %s, 100%% %s", selectVar, quant_str[1], quant_str[2], quant_str[3], quant_str[4], quant_str[5])
-        
-        HTML(paste(str1, str2, str3, str4, str5,  sep = '<br/>'))
-      })
-
-      
-      output$plot <- renderPlot({
-        if (selectPlot == "histEnvMeas") {
-          plotTitle="Environmental Measurements Distribution"
-          # check distribution
-          ggplot(envMeasInRange(),
-                 aes_string(x=selectVar)) + 
-            ylab("Density") +
-            xlab(selectVar) +
-            ggtitle(plotTitle) +
-            geom_histogram(aes(y=..density..), colour="black", fill="white")+
-            geom_density(alpha=.2, fill="#FF6666") 
-        } else if (selectPlot == "boxSiteMonth") {
-          plotTitle="Environmental Measurements by Site and Month"
-          ggplot(envMeasInRange() %>%
-                   filter(!if_any(c(selectVar, site_id), is.na)), 
-                 aes_string(x="site_id", y=selectVar, fill="site_id")) + 
-            geom_boxplot() +
-            xlab(selectVar) +
-            xlab("Site ID") +
-            facet_grid(survey_month ~ .) +
-            ggtitle(plotTitle) +
-            theme(plot.title = element_text(hjust = 0.5)) +
-            theme(axis.text.x = element_text(angle=50, hjust=1)) +
-            theme(legend.position = "none") 
-        } else if (selectPlot == "boxSystem") {
-          plotTitle="Environmental Measurements by System"
-          ggplot(envMeasInRange() %>%
-                   dplyr::mutate(system_type=factor(system_type, levels= c("C", "E", "S", "L", "A", "other"))), 
-                 aes_string(x="system_type", y=selectVar, fill="system_type")) + 
-                 geom_boxplot() +
-                 ylab(selectVar) +
-                 xlab("System") +
-                 ggtitle(plotTitle) +
-                 theme(plot.title = element_text(hjust = 0.5)) +
-                 theme(legend.position = "none") 
-        } else if (selectPlot == "boxSite") {
-          plotTitle="Environmental Measurements by Site"
-          ggplot(envMeasInRange(), 
-                 aes_string(x="site_id", y=selectVar, fill="site_id")) + 
-            geom_boxplot() +
-            ylab(selectVar) +
-            xlab("Site ID") +
-            ggtitle(plotTitle) +
-            theme(plot.title = element_text(hjust = 0.5)) +
-            theme(axis.text.x = element_text(angle=50, hjust=1)) +
-            theme(legend.position = "none") 
-        } else if (selectPlot == "splotDepthMoSys") {
-          #fileName="s123_envmeas_wtemp_system_month_depth_splot"
-          plotTitle = "Water Temperature by System, Depth, and Month"
-          ggplot(envMeasInRange() %>%
-                   dplyr::mutate(system_type=factor(system_type, levels= c("C", "E", "S", "L", "A", "other"))), 
-                 aes_string(x="survey_month", y="envmeas_depth", color=selectVar)) +
-            geom_point(size=2) +
-            geom_jitter(width = 0.25, height = 2) +
-            scale_x_discrete(name ="Month", limits=factor(seq(1, 12, by=1))) +
-            scale_y_continuous(name =selectVar) +
-            labs(color='Water Temp (C)') +
-            ggtitle(plotTitle) +
-            facet_grid(system_type ~ .)
-          
-        } else return(NULL)
-      })
-        
-      output$table <- DT::renderDataTable({
-        DT::datatable(envMeasInRange(), options = list(scrollX = TRUE))
-        })
-    }) 
-},
-options = list(height = 1000)
-)
-```
-
-
-# ENVIRONMENTAL MEASUREMENTS: WATER TEMPERATURE
-Water temperature is typically recorded with a YSI instrument. Water temperature is recorded in °C and has a range of -5°C to 50°C.
-
-## Percentage of Site IDs with environmental water temperature measurements
-* add percentage of index site ids with environmental measurements that also have water_temp
-
-## Environmental measurement of Temperature quantiles
-
-## Environmental measurement where water temperature is greater than 50
-
-## Environmental measurement of Temperature distribution
-
-## Scatter plot of water temperature by depth, month, and system type
-
-
-## Environmental measurement of Water Temperature by Site and Month plot
-
-## Environmental measurement of Water Temperature by System plot
-
-
-## Environmental measurement of Water Temperature by Site ID plot
-* change fill to system rather than site_id (but keep in x)
-
-# ENVIRONMENTAL MEASUREMENTS: SALINITY
-Salinity is recorded in PSU (Practical Salinity Unit).
-For Maine ~30 PSU
-
-## Percentage of Site IDs with environmental measurements of Salinity
-
-* add percentage of index site ids with environmental measurements that also have salinity
-
-
-## Environmental measurement of Salinity quantiles
-
-
-## Environmental measurements where salinity is greater than 40
-
-
-## Environmental measurement of Salinity distribution
-
-
-## Scatter plot of salinity by depth, month, and system type
-* add note about depth and sampling year/month
-
-## Environmental measurement of Salinity by Site ID and Month
-
-## Environmental measurement of Salinity by System
-
-## Environmental measurement of Salinity by Site ID
-
-# ENVIRONMENTAL MEASUREMENTS: TURBIDITY
-Turbidity is typically collected with a YSI instrument. Turbidity is recorded in FNU (Formazin Nephelometric Unit) and has a range of 0 to 4000 FNU. 
-* add turbidity ranges (what is high turbidity?), range for Maine?
-
-## Percentage of Site IDs with environmental measurements of Turbidity
-* add percentage of index site ids with environmental measurements that also have turbidity
-
-## Environmental measurements of Turbidity quantile
-
-## Environmental measurements where turbidity is greater than 40
-
-
-## Environmental measurements of turbidity distribution
-
-
-## Scatter plot of turbidity by depth and month
-
-## Environmental measurements of Turbidity by Site ID and Month
-* add note about depth and sampling year/month
-
-
-## Environmental measurements of Turbidity by System
-
-
-## Environmental measurements of Turbidity by Site ID
-
-
-# ENVIRONMENTAL MEASUREMENTS: CONDUCTIVITY
-Conductivity is typically collected with a YSI instrument. Conductivity is recorded in μS/cm and has a range of 0 to 100,000 μS/cm. 
-
-## Percentage of Site IDs with environmental measurements of Conductivity
-* add percentage of index site ids with environmental measurements that also have conductivity
-
-
-## Environmental measurements of Conductivity quantile
-
-## Environmental measurements where conductivity is less than 100
-
-## Environmental measurements of conductivity distribution
-
-
-## Scatter plot of conductivity by depth, month, and system type
-
-
-## Environmental measurements of Conductivity by Site ID and Month
-* add note about depth and sampling year/month
-
-
-
-## Environmental measurements of Conductivity by System
-
-
-## Environmental measurements of Conductivity by Site ID
-
-# ENVIRONMENTAL MEASUREMENTS: DISSOLVED OXYGEN
-Dissolved Oxygen is typically collected with a YSI instrument. Dissolved Oxygen is recorded in mg/L and has a range of 0 to 50 mg/L. 
-
-## Percentage of Site IDs with environmental measurements of Dissolved Oxygen
-* add percentage of index site ids with environmental measurements that also have dissolved oxygen
-
-
-
-## Environmental measurements of Dissolved Oxygen quantile
-
-
-## Environmental measurements where dissolved oxygen is greater than 50
-
-## Environmental measurements of dissolved oxygen distribution
-
-## Scatter plot of dissolved oxygen by depth, month, and system type
-
-
-## Environmental measurements of Dissolved Oxygen by Site ID and Month
-* add note about depth and sampling year/month
-
-
-## Environmental measurements of Dissolved Oxygen by System
-
-
-## Environmental measurements of Dissolved Oxygen by Site ID
-
-
-
-# ENVIRONMENTAL MEASUREMENTS: PAR1
-Photosynthetically Active Radiation (Channel 1: Up looking), or PAR1, is typically collected with a YSI instrument. PAR1 is recorded in μmoles/sec/m². 
-
-## Percentage of Site IDs with environmental measurements of PAR1
-* add percentage of index site ids with environmental measurements that also have PAR1
-
-
-
-## Environmental measurements of par1 quantile
-
-
-
-## Environmental measurements where par1 is greater than 1000
-
-
-## Environmental measurements of par1 distribution
-
-
-## Scatter plot of par1 by depth, month, and system type
-
-
-## Environmental measurements of par1 by Site ID and Month
-* add note about depth and sampling year/month
-
-
-## Environmental measurements of par1 by System
-
-
-## Environmental measurements of par1 by Site ID
-
-
-# ENVIRONMENTAL MEASUREMENTS: PAR2
-Photosynthetically Active Radiation (Channel 2: Down looking), or PAR2, is typically collected with a YSI instrument. PAR2 is recorded in μmoles/sec/m². 
-
-## Percentage of Site IDs with environmental measurements of PAR2
-* add percentage of index site ids with environmental measurements that also have PAR2
-
-
-
-## Environmental measurements of par2 quantile
-
-
-
-## Environmental measurements where par2 is greater than 40
-
-
-## Environmental measurements of par2 distribution
-
-
-## Scatter plot of par2 by depth, month, and system type
-
-
-## Environmental measurements of par2 by Site ID and Month
-* add note about depth and sampling year/month
-
-## Environmental measurements of par2 by System
-
-
-## Environmental measurements of par2 by Site ID
