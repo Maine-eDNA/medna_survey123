@@ -53,6 +53,17 @@ selected_projects <- c("Larval Black Box (T1)",
                      "Community Science (T3)",
                      "Other")
 theme_set(theme_bw())
+
+var_fmt=data.table(var=c("env_measurements", "envmeas_depth", "water_temp",
+                         "salinity", "turbidity",
+                         "conductivity", "do",
+                         "par1", "par2",
+                         "water_depth", "depth_core_collected"),
+                   var_fmt=c("Environmental Measurements", "Measurement Depth (M)", "Water Temperature (°C)",
+                         "Salinity (Practical Salinity Unit)", "Turbidity (Formazin Nephelometric Unit)",
+                         "Conductivity (μS/cm)", "Dissolved Oxygen (mg/L)",
+                         "PAR1 (μmoles/sec/m²)", "PAR2 (μmoles/sec/m²)",
+                         "Water Collection Depth (M)", "Core Collection Depth (M)"))
 ```
 
 # LOAD SHAPFILES

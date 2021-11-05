@@ -839,7 +839,8 @@ create_summary_col_table <- function(survey_collection_join, selected_plot_colty
 # s123 Summary Plots - Histogram
 ###############################
 create_plot_histogram <- function(df_inrange, selected_var_plots) {
-  selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  #selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  selected_var_plots_fmt <- var_fmt$var_fmt[var_fmt$var==selected_var_plots]
   # outputPngFileName <- file.path(outputPngFolder, paste0(sprintf("s123_%s_%s_histogram.png", dfname, selected_var_plots_fmt))
   plotTitle=sprintf("%s Distribution", selected_var_plots_fmt)
   # check distribution
@@ -856,7 +857,8 @@ create_plot_histogram <- function(df_inrange, selected_var_plots) {
 # s123 Summary Plots - Boxplot by Site and Month
 ###############################
 create_plot_boxplot_site_month <- function(df_inrange, selected_var_plots) {
-  selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  #selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  selected_var_plots_fmt <- var_fmt$var_fmt[var_fmt$var==selected_var_plots]
   # outputPngFileName <- file.path(outputPngFolder, paste0(sprintf("s123_%s_%s_sids_month_boxplot.png", dfname, selected_var_plots)))
   plotTitle=sprintf("%s by Site and Month", selected_var_plots_fmt)
   ggplot(df_inrange %>%
@@ -883,7 +885,8 @@ create_plot_boxplot_site_month <- function(df_inrange, selected_var_plots) {
 # s123 Summary Plots - Boxplot by System
 ###############################
 create_plot_boxplot_system <- function(df_inrange, selected_var_plots) {
-  selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  #selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  selected_var_plots_fmt <- var_fmt$var_fmt[var_fmt$var==selected_var_plots]
   # outputPngFileName <- file.path(outputPngFolder, paste0(sprintf("s123_%s_%s_system_boxplot.png", dfname, selected_var_plots)))
   plotTitle=sprintf("%s by System", selected_var_plots_fmt)
   ggplot(df_inrange %>%
@@ -902,7 +905,8 @@ create_plot_boxplot_system <- function(df_inrange, selected_var_plots) {
 # s123 Summary Plots - Boxplot by Site
 ###############################
 create_plot_boxplot_site <- function(df_inrange, selected_var_plots) {
-  selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  #selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  selected_var_plots_fmt <- var_fmt$var_fmt[var_fmt$var==selected_var_plots]
   # outputPngFileName <- file.path(outputPngFolder, paste0(sprintf("s123_%s_%s_sids_boxplot.png", dfname, selected_var_plots)))
   plotTitle=sprintf("%s by Site", selected_var_plots_fmt)
   ggplot(df_inrange %>%
@@ -921,7 +925,8 @@ create_plot_boxplot_site <- function(df_inrange, selected_var_plots) {
 # s123 Summary Plots - Scatterplot by System, Depth, and Month
 ###############################
 create_plot_splot_system_depth_month <- function(df_inrange, depth_var, selected_var_plots) {
-  selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  #selected_var_plots_fmt <- tools::toTitleCase(gsub("_", " ",selected_var_plots))
+  selected_var_plots_fmt <- var_fmt$var_fmt[var_fmt$var==selected_var_plots]
   # outputPngFileName <- file.path(outputPngFolder, paste0(sprintf("s123_%s_%s_system_month_depth_splot.png", dfname, selected_var_plots)))
   plotTitle=sprintf("%s by System, Depth, and Month", selected_var_plots_fmt)
   ggplot(df_inrange %>%
