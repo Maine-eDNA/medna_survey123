@@ -381,7 +381,9 @@ title_var = "Survey"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, 
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 
@@ -457,8 +459,8 @@ knitr::include_graphics(outputPngFileName)
 ```{r}
 nrow(survey_sub)
 
-unique_survey_gids <- unique(survey_sub$survey_GlobalID)
-unique_envmeas_survey_gids <- unique(survey_crew$ParentGlobalID) 
+unique_survey_gids <- unique(survey_sub$gid)
+unique_envmeas_survey_gids <- unique(survey_crew_join$survey_GlobalID) 
 
 perc_gids<-(length(unique_envmeas_survey_gids)/length(unique_survey_gids))*100
 print(paste0("Percentage of survey records with crew information: ",round(perc_gids,2),"%"))
@@ -542,7 +544,9 @@ title_var = "Environmental Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -679,7 +683,9 @@ title_var = "Water Collection Depths"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_depth_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -820,7 +826,9 @@ title_var = "Water Temperature Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_wtemp_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -1013,7 +1021,9 @@ title_var = "Salinity Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_salinity_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -1187,7 +1197,9 @@ title_var = "Turbidity Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_turbidity_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -1365,7 +1377,9 @@ title_var = "Conductivity Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_conductivity_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -1539,7 +1553,9 @@ title_var = "Dissolved Oxygen Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_do_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -1715,7 +1731,9 @@ title_var = "PAR1 Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_par1_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -1873,7 +1891,9 @@ title_var = "PAR2 Measurements"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_par2_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -2369,7 +2389,9 @@ title_var = "Water Collections"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_water_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -2482,7 +2504,9 @@ title_var = "Sediment Collections"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_sediment_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -2606,7 +2630,9 @@ title_var = " Water Collection Depths"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_wdepth_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -2764,7 +2790,9 @@ title_var = " Sediment Collection Depths"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_collect_sdepth_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -2961,7 +2989,9 @@ title_var = " Filters"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_filters_all_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
@@ -3110,7 +3140,9 @@ title_var = " Subcores"
 # save plot in png format
 outputPngFileName <- file.path(outputPngFolder,paste0("s123_subcores_all_sids_map.png"))
 png(outputPngFileName,height=6,width=9, units='in', res=300)
-create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf, rcdext_df, title_var)
+create_map_sids(boundingbox_sids, countries_sfdf, WBD_sfdf, lakes_sfdf, rivers_sfdf, site_ids_sfdf,
+                rcdext_df %>%
+                  dplyr::filter(RecordsExist=="Yes"), title_var)
 dev.off()
 knitr::include_graphics(outputPngFileName)
 ```
