@@ -103,6 +103,10 @@ class DownloadCleanJoinData:
                  rep_filter=settings.REP_FILTER,
                  survey_projects=settings.SURVEY_PROJECTS,
                  survey_sub_filename=settings.SURVEY_SUB_FILENAME,
+                 crew_sub_filename=settings.CREW_SUB_FILENAME,
+                 envmeas_sub_filename=settings.ENVMEAS_SUB_FILENAME,
+                 collection_sub_filename=settings.COLLECTION_SUB_FILENAME,
+                 filter_sub_filename=settings.FILTER_SUB_FILENAME,
                  survey_crew_join_filename=settings.SURVEY_CREW_JOIN_FILENAME,
                  survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
@@ -143,8 +147,13 @@ class DownloadCleanJoinData:
         self.survey_projects = survey_projects
         # Join data boolean
         self.join_tables = join_tables
-        # Joined original data
+        # subset data
         self.survey_sub_filename = survey_sub_filename
+        self.crew_sub_filename = crew_sub_filename
+        self.envmeas_sub_filename = envmeas_sub_filename
+        self.collection_sub_filename = collection_sub_filename
+        self.filter_sub_filename = filter_sub_filename
+        # Joined original data
         self.survey_crew_join_filename = survey_crew_join_filename
         self.survey_envmeas_join_filename = survey_envmeas_join_filename
         self.survey_collection_join_filename = survey_collection_join_filename
@@ -377,7 +386,13 @@ class DownloadCleanJoinData:
                                                         'Crew First Name': 'crew_fname',
                                                         'Crew Last Name': 'crew_lname',
                                                         'CreationDate': 'crew_create_date'})
+
+            # write crew_sub to csv
+            api_logger.info("subset_crew_dataset: To CSV " + self.crew_sub_filename)
+            output_file = self.main_output_dir + self.crew_sub_filename + ".csv"
+            rep_crew_sub.to_csv(output_file, encoding='utf-8')
             api_logger.info("[END] subset_crew_dataset")
+
             return rep_crew_sub
         except Exception as err:
             raise RuntimeError("** Error: subset_crew_dataset Failed (" + str(err) + ")")
@@ -440,7 +455,12 @@ class DownloadCleanJoinData:
                                                               'CreationDate': 'envmeas_create_date'
                                                               })
 
+            # write envmeas_sub to csv
+            api_logger.info("subset_envmeas_dataset: To CSV " + self.envmeas_sub_filename)
+            output_file = self.main_output_dir + self.envmeas_sub_filename + ".csv"
+            rep_envmeas_sub.to_csv(output_file, encoding='utf-8')
             api_logger.info("[END] subset_envmeas_dataset")
+
             return rep_envmeas_sub
         except Exception as err:
             raise RuntimeError("** Error: subset_envmeas_dataset Failed (" + str(err) + ")")
@@ -459,7 +479,11 @@ class DownloadCleanJoinData:
                                                     'Water Vessel Label',
                                                     'Water Control',
                                                     'Water Control Type',
+                                                    'Water Collection Mode',
+                                                    'Niskin Number',
+                                                    'Niskin Volume',
                                                     'Water Depth',
+                                                    'Water Vessel Volume',
                                                     'Water Vessel Material',
                                                     'Water Vessel Color',
                                                     'Was Filtered',
@@ -496,7 +520,11 @@ class DownloadCleanJoinData:
                                                                     'Water Collection DateTime': 'water_collect_date',
                                                                     'Water Control': 'water_control',
                                                                     'Water Control Type': 'water_control_type',
+                                                                    'Water Collection Mode': 'water_collect_mode',
+                                                                    'Niskin Number': 'water_niskin_number',
+                                                                    'Niskin Volume': 'water_niskin_vol',
                                                                     'Water Depth': 'water_depth',
+                                                                    'Water Vessel Volume': 'water_vessel_vol',
                                                                     'Water Vessel Material': 'water_vessel_material',
                                                                     'Water Vessel Color': 'water_vessel_color',
                                                                     'Was Filtered': 'was_filtered',
@@ -528,7 +556,12 @@ class DownloadCleanJoinData:
                                                                     'Purpose of Other Cores': 'purpose_other_cores',
                                                                     'CreationDate': 'collection_create_date'})
 
+            # write collection_sub to csv
+            api_logger.info("subset_collection_dataset: To CSV " + self.collection_sub_filename)
+            output_file = self.main_output_dir + self.collection_sub_filename + ".csv"
+            rep_collection_sub.to_csv(output_file, encoding='utf-8')
             api_logger.info("[END] subset_collection_dataset")
+
             return rep_collection_sub
         except Exception as err:
             raise RuntimeError("** Error: subset_collection_data Failed (" + str(err) + ")")
@@ -539,18 +572,31 @@ class DownloadCleanJoinData:
             # read in CSVs as df
             rep_filter_df = pd.read_csv(self.rep_filter)
             # subset
-            rep_filter_sub = rep_filter_df[['GlobalID', 'ParentGlobalID', 'Is Prefilter', 'Filter Sample Label',
-                                            'Filter Barcode', 'Filter DateTime', 'Filter Type', 'Other Filter Type',
+            rep_filter_sub = rep_filter_df[['GlobalID', 'ParentGlobalID', 'Is Prefilter', 'Filter Location',
+                                            'Filter Sample Label', 'Filterer First Name', 'Filterer Last Name',
+                                            'Filter Barcode', 'Filter DateTime',
+                                            'Filter Method', 'Other Filter Method',
+                                            'Water Volume Filtered',
+                                            'Filter Type', 'Other Filter Type',
+                                            'Filter Pore Size', 'Filter Size',
                                             'Filter Notes', 'CreationDate']].copy()
             # rename
             rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_GlobalID',
                                                             'ParentGlobalID': 'filter_ParentGlobalID',
+                                                            'Filter Location': 'filter_location',
                                                             'Is Prefilter': 'is_prefilter',
+                                                            'Filterer First Name': 'filter_fname',
+                                                            'Filterer Last Name': 'filter_lname',
                                                             'Filter Sample Label': 'filter_label',
                                                             'Filter Barcode': 'filter_barcode',
                                                             'Filter DateTime': 'filter_date',
+                                                            'Filter Method': 'filter_method',
+                                                            'Other Filter Method': 'filter_method_other',
+                                                            'Water Volume Filtered': 'filter_vol',
                                                             'Filter Type': 'filter_type',
                                                             'Other Filter Type': 'filter_type_other',
+                                                            'Filter Pore Size': 'filter_pore',
+                                                            'Filter Size': 'filter_size',
                                                             'Filter Notes': 'filter_notes',
                                                             'CreationDate': 'filter_create_date'})
             # change all filter_type to lower case
@@ -559,6 +605,11 @@ class DownloadCleanJoinData:
             rep_filter_sub['filter_date'] = pd.to_datetime(rep_filter_sub.filter_date)
             # rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%m/%d/%Y')
             rep_filter_sub['filter_date'] = rep_filter_sub['filter_date'].dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+            # write collection_sub to csv
+            api_logger.info("subset_filter_dataset: To CSV " + self.filter_sub_filename)
+            output_file = self.main_output_dir + self.filter_sub_filename + ".csv"
+            rep_filter_sub.to_csv(output_file, encoding='utf-8')
             api_logger.info("[END] subset_filter_dataset")
 
             return rep_filter_sub
