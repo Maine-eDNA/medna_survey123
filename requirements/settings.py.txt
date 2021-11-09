@@ -49,6 +49,12 @@ REP_FILTER = MAIN_INPUT_STRIP_DIR+"rep_filter_4.csv"
 ########################################
 # Filename of joined clean data and name of sheets within the target google spreadsheet
 SURVEY_SUB_FILENAME = "eDNA_Sampling_v14_sub"
+CREW_SUB_FILENAME = "rep_crew_sub"
+ENVMEAS_SUB_FILENAME = "rep_envmeas_sub"
+COLLECTION_SUB_FILENAME = "rep_collection_sub"
+FILTER_SUB_FILENAME = "rep_filter_sub"
+
+# joined filenames
 SURVEY_CREW_JOIN_FILENAME = "survey_crew_join"
 SURVEY_ENVMEAS_JOIN_FILENAME = "survey_envmeas_join"
 SURVEY_COLLECTION_JOIN_FILENAME = "survey_collection_join"
