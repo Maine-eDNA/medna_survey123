@@ -304,8 +304,8 @@ class DownloadCleanJoinData:
             survey_sub = survey_data_df[['GlobalID', 'Survey DateTime', 'Affiliated Projects', 'Supervisor',
                                          'username', 'Recorder First Name',
                                          'Recorder Last Name', 'Site ID', 'Other Site ID', 'General Location Name',
-                                         'EditDate', 'CreationDate',
-                                         'Latitude', 'Longitude', 'gps_cap_lat', 'gps_cap_long']].copy()
+                                         'Latitude', 'Longitude', 'gps_cap_lat', 'gps_cap_long',
+                                         'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename fields to remove spaces
             survey_sub = survey_sub.rename(columns={'GlobalID': 'survey_GlobalID',
                                                     'Survey DateTime': 'survey_date',
@@ -316,10 +316,12 @@ class DownloadCleanJoinData:
                                                     'Site ID': 'site_id',
                                                     'Other Site ID': 'other_site_id',
                                                     'General Location Name': 'general_location_name',
-                                                    'EditDate': 'survey_edit_date',
-                                                    'CreationDate': 'survey_create_date',
                                                     'Latitude': 'lat_manual',
-                                                    'Longitude': 'long_manual'
+                                                    'Longitude': 'long_manual',
+                                                    'CreationDate': 'survey_create_date',
+                                                    'Creator': 'survey_creator',
+                                                    'EditDate': 'survey_edit_date',
+                                                    'Editor': 'survey_editor'
                                                     })
             # format date and add month and year columns
             survey_sub['survey_date'] = pd.to_datetime(survey_sub.survey_date)
@@ -356,9 +358,10 @@ class DownloadCleanJoinData:
             survey_sub_output = survey_sub_output[['survey_GlobalID', 'survey_date', 'survey_month', 'survey_year',
                                                    'projects', 'supervisor', 'username', 'recorder_first_name',
                                                    'recorder_last_name', 'system_type', 'site_id', 'other_site_id',
-                                                   'general_location_name', 'survey_edit_date',
-                                                   'survey_create_date',
-                                                   'lat_manual', 'long_manual', 'gps_cap_lat', 'gps_cap_long']].copy()
+                                                   'general_location_name',
+                                                   'lat_manual', 'long_manual', 'gps_cap_lat', 'gps_cap_long',
+                                                   'survey_create_date', 'survey_creator',
+                                                   'survey_edit_date', 'survey_editor']].copy()
             survey_sub_output['survey_date'] = pd.to_datetime(survey_sub_output.survey_date)
             survey_sub_output = survey_sub_output.sort_values(by=['survey_date', 'survey_GlobalID']).reset_index(drop=True)
 
@@ -379,13 +382,16 @@ class DownloadCleanJoinData:
             rep_crew_df = pd.read_csv(self.rep_crew)
             rep_crew_sub = rep_crew_df[['GlobalID', 'ParentGlobalID',
                                         'Crew First Name', 'Crew Last Name',
-                                        'CreationDate']].copy()
+                                        'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
             rep_crew_sub = rep_crew_sub.rename(columns={'GlobalID': 'crew_GlobalID',
                                                         'ParentGlobalID': 'crew_ParentGlobalID',
                                                         'Crew First Name': 'crew_fname',
                                                         'Crew Last Name': 'crew_lname',
-                                                        'CreationDate': 'crew_create_date'})
+                                                        'CreationDate': 'crew_create_date',
+                                                        'Creator': 'crew_creator',
+                                                        'EditDate': 'crew_edit_date',
+                                                        'Editor': 'crew_editor'})
 
             # write crew_sub to csv
             api_logger.info("subset_crew_dataset: To CSV " + self.crew_sub_filename)
@@ -415,7 +421,8 @@ class DownloadCleanJoinData:
                                               'PAR1', 'PAR2', 'Turbidity', 'Conductivity', 'Dissolved Oxygen',
                                               'Pheophytin', 'Chlorophyll a', 'Nitrate and Nitrite', 'Nitrite',
                                               'Ammonium', 'Phosphate', 'Bottom Substrate', 'Lab DateTime',
-                                              'Measurement Notes', 'CreationDate']].copy()
+                                              'Measurement Notes',
+                                              'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
             rep_envmeas_sub = rep_envmeas_sub.rename(columns={'GlobalID': 'envmeas_GlobalID',
                                                               'ParentGlobalID': 'envmeas_ParentGlobalID',
@@ -452,7 +459,10 @@ class DownloadCleanJoinData:
                                                               'Bottom Substrate': 'bottom_substrate',
                                                               'Lab DateTime': 'lab_date',
                                                               'Measurement Notes': 'envmeas_notes',
-                                                              'CreationDate': 'envmeas_create_date'
+                                                              'CreationDate': 'envmeas_create_date',
+                                                              'Creator': 'envmeas_creator',
+                                                              'EditDate': 'envmeas_edit_date',
+                                                              'Editor': 'envmeas_editor'
                                                               })
 
             # write envmeas_sub to csv
@@ -512,7 +522,7 @@ class DownloadCleanJoinData:
                                                     'Sub-Core Diameter',
                                                     'Sub-Core Consistency Layer',
                                                     'Purpose of Other Cores',
-                                                    'CreationDate']].copy()
+                                                    'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
             rep_collection_sub = rep_collection_sub.rename(columns={'GlobalID': 'collection_GlobalID',
                                                                     'ParentGlobalID': 'collection_ParentGlobalID',
@@ -554,7 +564,10 @@ class DownloadCleanJoinData:
                                                                     'Sub-Core Diameter': 'subcore_diameter',
                                                                     'Sub-Core Consistency Layer': 'subcore_consistency_layer',
                                                                     'Purpose of Other Cores': 'purpose_other_cores',
-                                                                    'CreationDate': 'collection_create_date'})
+                                                                    'CreationDate': 'collection_create_date',
+                                                                    'Creator': 'collection_creator',
+                                                                    'EditDate': 'collection_edit_date',
+                                                                    'Editor': 'collection_editor'})
 
             # write collection_sub to csv
             api_logger.info("subset_collection_dataset: To CSV " + self.collection_sub_filename)
@@ -579,7 +592,8 @@ class DownloadCleanJoinData:
                                             'Water Volume Filtered',
                                             'Filter Type', 'Other Filter Type',
                                             'Filter Pore Size', 'Filter Size',
-                                            'Filter Notes', 'CreationDate']].copy()
+                                            'Filter Notes',
+                                            'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
             rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_GlobalID',
                                                             'ParentGlobalID': 'filter_ParentGlobalID',
@@ -598,7 +612,10 @@ class DownloadCleanJoinData:
                                                             'Filter Pore Size': 'filter_pore',
                                                             'Filter Size': 'filter_size',
                                                             'Filter Notes': 'filter_notes',
-                                                            'CreationDate': 'filter_create_date'})
+                                                            'CreationDate': 'filter_create_date',
+                                                            'Creator': 'filter_creator',
+                                                            'EditDate': 'filter_edit_date',
+                                                            'Editor': 'filter_editor'})
             # change all filter_type to lower case
             rep_filter_sub['filter_type'] = rep_filter_sub['filter_type'].str.lower()
             # reformat date
