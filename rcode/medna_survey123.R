@@ -45,8 +45,8 @@ subset_prj_df <- function(df_bplot, site_id_prjs, selected_projects) {
   selected_projects <- tolower(selected_projects)
   
   df_sub_prj <- df_bplot %>%
-    dplyr::mutate(projects=na_if(projects,"")) %>%
-    dplyr::mutate(projects = replace_na(projects, "Maine eDNA")) %>%
+    dplyr::mutate(project_ids=na_if(project_ids,"")) %>%
+    dplyr::mutate(project_ids = replace_na(project_ids, "Maine eDNA")) %>%
     dplyr::left_join(site_id_prjs) %>%
     dplyr::mutate(sid_prjs_sub = gsub(",", " ", sid_prjs)) %>%
     dplyr::mutate(sid_prjs_sub = gsub("[()]", "",sid_prjs_sub)) %>%
@@ -74,14 +74,14 @@ create_table_sids <- function (df_map, site_ids_sfdf){
     dplyr::mutate(id = paste0("s",id)) %>%
     dplyr::mutate(RecordsExist = ifelse(is.na(RecordsExist), "No", RecordsExist)) %>%
     dplyr::select(id, site_id, general_location_name, RecordsExist, 
-                  projects, system_type, watershed_code, lon, lat) %>%
+                  project_ids, system_type, watershed_code, lon, lat) %>%
     dplyr::arrange(site_id) 
   
   rcdext_sids_other <- df_map %>%
     dplyr::filter(!if_any(c(site_id), is.na)) %>%
     dplyr::filter(site_id == "other") %>%
     dplyr::filter(lat_manual > 0 | long_manual > 0) %>%
-    dplyr::select(site_id, general_location_name, projects, lat_manual, long_manual) %>%
+    dplyr::select(site_id, general_location_name, project_ids, lat_manual, long_manual) %>%
     dplyr::distinct() %>%
     dplyr::rename(lat=lat_manual) %>%
     dplyr::rename(lon=long_manual) %>%
@@ -107,10 +107,10 @@ create_table_sids <- function (df_map, site_ids_sfdf){
 ###############################
 fmt_sids_table <- function(rcdext_df) {
   rcdext_fmt_df <- rcdext_df %>%
-    dplyr::select(site_id, general_location_name, projects, RecordsExist) %>%
+    dplyr::select(site_id, general_location_name, project_ids, RecordsExist) %>%
     dplyr::rename(SiteID = site_id) %>%
     dplyr::rename(SiteName = general_location_name) %>%
-    dplyr::rename(Projects = projects)
+    dplyr::rename(Projects = project_ids)
   rcdext_fmt_df$SiteName <- stringr::str_wrap(rcdext_fmt_df$SiteName, 40)
   rcdext_fmt_df$Projects <- stringr::str_wrap(rcdext_fmt_df$Projects, 40)
   return(rcdext_fmt_df)
@@ -174,12 +174,12 @@ create_table_filters_sids <- function(clean_filter_join, select_var_maps){
   if (select_var_maps == "filter_type"){
     rcdext_df <- create_table_sids(clean_filter_join %>%
                                      dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                     dplyr::filter(!if_any(c(survey_GlobalID, gid, filter_type, filter_label), is.na)),
+                                     dplyr::filter(!if_any(c(survey_global_id, gid, filter_type, filter_label), is.na)),
                                    site_ids_sfdf)
   } else {
     rcdext_df = create_table_sids(clean_filter_join %>%
                                     dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                    dplyr::filter(!if_any(c(survey_GlobalID, gid, filter_type, filter_label), is.na) & filter_type==select_var_maps),
+                                    dplyr::filter(!if_any(c(survey_global_id, gid, filter_type, filter_label), is.na) & filter_type==select_var_maps),
                                   site_ids_sfdf)
   }
   return(rcdext_df)
@@ -195,7 +195,7 @@ create_table_filters_sids_fmt <- function(clean_filter_join, select_var_maps){
 
 create_table_subcores_sids <- function(clean_subcore_join) {
   rcdext_df <- create_table_sids(clean_subcore_join %>%
-                                   dplyr::filter(!if_any(c(gid, survey_GlobalID, collection_GlobalID), is.na)), 
+                                   dplyr::filter(!if_any(c(gid, survey_global_id, collection_GlobalID), is.na)), 
                                  site_ids_sfdf)
   return(rcdext_df)
   
@@ -278,12 +278,12 @@ create_table_count_system <- function(df_sub_prj){
 ###############################
 create_table_count_site <- function(df_sub_prj, site_ids_sfdf){
   df_sub_prj %>%
-    dplyr::filter(!if_any(c(gid, survey_date, site_id), is.na)) %>%
+    dplyr::filter(!if_any(c(gid, survey_datetime, site_id), is.na)) %>%
     dplyr::select(gid, site_id) %>% 
     dplyr::group_by(site_id) %>%
     dplyr::count(site_id)  %>%
     dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
-                                       dplyr::filter(!if_any(c(gid, survey_date, site_id), is.na))))*100, 2)) %>%
+                                       dplyr::filter(!if_any(c(gid, survey_datetime, site_id), is.na))))*100, 2)) %>%
     dplyr::left_join(as.data.frame(site_ids_sfdf)) %>%
     dplyr::select(site_id, general_location_name, n, perc)
 }
@@ -349,14 +349,14 @@ create_table_count_system_year <- function(df_sub_prj){
 ###############################
 create_table_count_month_year <- function(df_sub_prj){
   df_sub_prj %>%
-    dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
-    dplyr::select(gid, survey_date) %>% 
-    dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
-    dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
+    dplyr::filter(!if_any(c(gid, survey_datetime), is.na)) %>%
+    dplyr::select(gid, survey_datetime) %>% 
+    dplyr::mutate(survey_datetime = lubridate::ymd(survey_datetime, tz="UTC")) %>%
+    dplyr::mutate(survey_yrmo = format(survey_datetime, format="%b %Y")) %>%
     dplyr::group_by(survey_yrmo) %>%
     dplyr::count(survey_yrmo) %>%
     dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
-                                       dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
+                                       dplyr::filter(!if_any(c(gid, survey_datetime), is.na))))*100, 2)) %>%
     tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
     dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
                                                 "Apr", "May", "Jun", 
@@ -364,10 +364,10 @@ create_table_count_month_year <- function(df_sub_prj){
                                                 "Oct", "Nov", "Dec"))) %>%
     dplyr::arrange(month, year) %>%
     dplyr::left_join(df_sub_prj %>%
-                       dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
-                       dplyr::select(gid, survey_date) %>% 
-                       dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
-                       dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
+                       dplyr::filter(!if_any(c(gid, survey_datetime), is.na)) %>%
+                       dplyr::select(gid, survey_datetime) %>% 
+                       dplyr::mutate(survey_datetime = lubridate::ymd(survey_datetime, tz="UTC")) %>%
+                       dplyr::mutate(survey_yrmo = format(survey_datetime, format="%b %Y")) %>%
                        dplyr::group_by(survey_yrmo) %>%
                        dplyr::count(survey_yrmo) %>%
                        tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
@@ -383,19 +383,19 @@ create_table_count_month_year <- function(df_sub_prj){
 ###############################
 create_table_count_site_year <- function(df_sub_prj, site_ids_sfdf){
   df_sub_prj %>%
-    dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+    dplyr::filter(!if_any(c(gid, survey_datetime), is.na)) %>%
     dplyr::select(gid, site_id, survey_year) %>% 
     dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
     dplyr::group_by(sid_year) %>%
     dplyr::count(sid_year) %>%
     dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
-                                       dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
+                                       dplyr::filter(!if_any(c(gid, survey_datetime), is.na))))*100, 2)) %>%
     tidyr::separate(sid_year, into=c("site_id","year"),sep=" ") %>%
     dplyr::left_join(as.data.frame(site_ids_sfdf)) %>%
     dplyr::select(site_id, general_location_name, year, n, perc) %>%
     dplyr::arrange(site_id, year) %>%
     dplyr::left_join(df_sub_prj %>%
-                       dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+                       dplyr::filter(!if_any(c(gid, survey_datetime), is.na)) %>%
                        dplyr::select(gid, site_id, survey_year) %>% 
                        dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
                        dplyr::group_by(sid_year) %>%
@@ -414,21 +414,21 @@ create_table_count_site_year <- function(df_sub_prj, site_ids_sfdf){
 create_table_count_filtertype_season <- function(df_sub_prj){
   df_sub_prj %>%
     dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-    tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+    tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
     dplyr::select(gid, filter_type, season) %>% 
     dplyr::mutate(ft_st=paste0(filter_type, " ", season)) %>%
     dplyr::group_by(ft_st) %>%
     dplyr::count(ft_st) %>%
     dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
                                        dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                       tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                                       tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label)))*100, 2)) %>%
     tidyr::separate(ft_st, into=c("filter_type","season"),sep=" ") %>%
     dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
     dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))) %>%
     dplyr::arrange(filter_type, season) %>%
     dplyr::left_join(df_sub_prj %>%
                        dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                       tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                       tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
                        dplyr::select(gid, filter_type, season) %>% 
                        dplyr::mutate(ft_st=paste0(filter_type, " ", season)) %>%
                        dplyr::group_by(ft_st) %>%
@@ -447,21 +447,21 @@ create_table_count_filtertype_season <- function(df_sub_prj){
 create_table_count_filtertype_system <- function(df_sub_prj){
   df_sub_prj %>%
     dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-    tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+    tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
     dplyr::select(gid, filter_type, system_type) %>% 
     dplyr::mutate(ft_st=paste0(filter_type, " ", system_type)) %>%
     dplyr::group_by(ft_st) %>%
     dplyr::count(ft_st) %>%
     dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
                                        dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                       tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                                       tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label)))*100, 2)) %>%
     tidyr::separate(ft_st, into=c("filter_type","system_type"),sep=" ") %>%
     dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
     dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%
     dplyr::arrange(filter_type, system_type) %>%
     dplyr::left_join(df_sub_prj %>%
                        dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                       tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                       tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
                        dplyr::select(gid, filter_type, system_type) %>% 
                        dplyr::mutate(ft_st=paste0(filter_type, " ", system_type)) %>%
                        dplyr::group_by(ft_st) %>%
@@ -480,20 +480,20 @@ create_table_count_filtertype_system <- function(df_sub_prj){
 create_table_count_filtertype_year <- function(df_sub_prj){
   df_sub_prj %>%
     dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-    tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+    tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
     dplyr::select(gid, filter_type, survey_year) %>% 
     dplyr::mutate(ft_year=paste0(filter_type, " ", survey_year)) %>%
     dplyr::group_by(ft_year) %>%
     dplyr::count(ft_year) %>%
     dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
                                        dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                       tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                                       tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label)))*100, 2)) %>%
     tidyr::separate(ft_year, into=c("filter_type","year"),sep=" ") %>%
     dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
     dplyr::arrange(filter_type, year) %>%
     dplyr::left_join(df_sub_prj %>%
                        dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                       tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+                       tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
                        dplyr::select(gid, filter_type, survey_year) %>% 
                        dplyr::mutate(ft_year=paste0(filter_type, " ", survey_year)) %>%
                        dplyr::group_by(ft_year) %>%
@@ -563,7 +563,7 @@ create_barplot_count_site <- function(df_sub_prj, dfname) {
   #outputPngFileName <- file.path(outputPngFolder,paste0("s123_envmeas_all_sids_count_barplot.png"))
   plotTitle = sprintf("Count of %s Records by Site", tools::toTitleCase(dfname))
   ggplot(df_sub_prj %>%
-           dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+           dplyr::filter(!if_any(c(gid, survey_datetime), is.na)) %>%
            dplyr::select(gid, site_id) %>% 
            dplyr::group_by(site_id) %>%
            dplyr::count(site_id),
@@ -639,14 +639,14 @@ create_barplot_count_month_year <- function(df_sub_prj, dfname) {
   #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_month_year_count_barplot.png"))
   plotTitle = sprintf("Count of %s Records by Month and Year", tools::toTitleCase(dfname))
   ggplot(df_sub_prj %>%
-           dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
-           dplyr::select(gid, survey_date) %>% 
-           dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
-           dplyr::mutate(survey_yrmo = format(survey_date, format="%b %Y")) %>%
+           dplyr::filter(!if_any(c(gid, survey_datetime), is.na)) %>%
+           dplyr::select(gid, survey_datetime) %>% 
+           dplyr::mutate(survey_datetime = lubridate::ymd(survey_datetime, tz="UTC")) %>%
+           dplyr::mutate(survey_yrmo = format(survey_datetime, format="%b %Y")) %>%
            dplyr::group_by(survey_yrmo) %>%
            dplyr::count(survey_yrmo) %>%
            dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
-                                              dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
+                                              dplyr::filter(!if_any(c(gid, survey_datetime), is.na))))*100, 2)) %>%
            tidyr::separate(survey_yrmo, into=c("month","year"),sep=" ") %>%
            dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
                                                        "Apr", "May", "Jun", 
@@ -671,13 +671,13 @@ create_barplot_count_site_year <- function(df_sub_prj, dfname) {
   #outputPngFileName <- file.path(outputPngFolder,paste0("s123_survey_all_sids_year_count_barplot.png"))
   plotTitle = sprintf("Count of %s Records by Site and Year", tools::toTitleCase(dfname))
   ggplot(df_sub_prj %>%
-           dplyr::filter(!if_any(c(gid, survey_date), is.na)) %>%
+           dplyr::filter(!if_any(c(gid, survey_datetime), is.na)) %>%
            dplyr::select(gid, site_id, survey_year) %>% 
            dplyr::mutate(sid_year=paste0(site_id, " ", survey_year)) %>%
            dplyr::group_by(sid_year) %>%
            dplyr::count(sid_year) %>%
            dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
-                                              dplyr::filter(!if_any(c(gid, survey_date), is.na))))*100, 2)) %>%
+                                              dplyr::filter(!if_any(c(gid, survey_datetime), is.na))))*100, 2)) %>%
            tidyr::separate(sid_year, into=c("site_id","year"),sep=" "),
          aes(site_id, n)) +
     geom_bar(aes(fill=year), position="stack", stat="identity") +
@@ -698,14 +698,14 @@ create_barplot_count_filtertype_season <- function(df_sub_prj, selected_filterty
   plotTitle = sprintf("Count of %s by Season", selected_filtertype_fmt)
   ggplot(df_sub_prj %>%
            dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-           tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+           tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
            dplyr::select(gid, filter_type, season) %>% 
            dplyr::mutate(ft_st=paste0(filter_type, " ", season)) %>%
            dplyr::group_by(ft_st) %>%
            dplyr::count(ft_st) %>%
            dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
                                               dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                              tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                                              tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label)))*100, 2)) %>%
            tidyr::separate(ft_st, into=c("filter_type","season"),sep=" ") %>%
            dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
            dplyr::mutate(season=factor(season, levels= c("Winter", "Spring", "Summer", "Fall"))),
@@ -728,14 +728,14 @@ create_barplot_count_filtertype_system <- function(df_sub_prj, selected_filterty
   plotTitle = sprintf("Count of %s by System", selected_filtertype_fmt)
   ggplot(df_sub_prj %>%
            dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-           tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+           tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
            dplyr::select(gid, filter_type, system_type) %>% 
            dplyr::mutate(ft_st=paste0(filter_type, " ", system_type)) %>%
            dplyr::group_by(ft_st) %>%
            dplyr::count(ft_st) %>%
            dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
                                               dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                              tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                                              tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label)))*100, 2)) %>%
            tidyr::separate(ft_st, into=c("filter_type","system_type"),sep=" ") %>%
            dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
            dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))),
@@ -757,14 +757,14 @@ create_barplot_count_filtertype_year <- function(df_sub_prj, selected_filtertype
   plotTitle = sprintf("Count of %s by Year", selected_filtertype_fmt)
   ggplot(df_sub_prj %>%
            dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-           tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label) %>%
+           tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label) %>%
            dplyr::select(gid, filter_type, survey_year) %>% 
            dplyr::mutate(ft_year=paste0(filter_type, " ", survey_year)) %>%
            dplyr::group_by(ft_year) %>%
            dplyr::count(ft_year) %>%
            dplyr::mutate(perc=round((n/nrow(df_sub_prj %>%
                                               dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-                                              tidyr::drop_na(survey_GlobalID, gid, season, filter_type, filter_label)))*100, 2)) %>%
+                                              tidyr::drop_na(survey_global_id, gid, season, filter_type, filter_label)))*100, 2)) %>%
            tidyr::separate(ft_year, into=c("filter_type","year"),sep=" ") %>%
            dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))),
          aes(filter_type, n)) +
@@ -784,7 +784,7 @@ create_barplot_count_filtertype_year <- function(df_sub_prj, selected_filtertype
 create_summary_envmeas_table <- function(survey_envmeas_join, selected_var_plots, start_range, end_range) {
   df_summaryplot <- survey_envmeas_join %>%
     dplyr::filter(!if_any(c(selected_var_plots, site_id), is.na)) %>%
-    dplyr::select(gid, survey_date, projects, system_type, 
+    dplyr::select(gid, survey_datetime, project_ids, system_type, 
                   site_id, other_site_id, general_location_name, 
                   supervisor, username, recorder_first_name, recorder_last_name, 
                   envmeas_date, envmeas_depth, envmeas_instrument, 
@@ -794,7 +794,7 @@ create_summary_envmeas_table <- function(survey_envmeas_join, selected_var_plots
                   conductivity, do, pheophytin, chla, no3no2, no2,
                   nh4, phosphate, bottom_substrate, lab_date, envmeas_notes,
                   lat_manual, long_manual, 
-                  survey_month, survey_year, season, season_year, survey_GlobalID) %>%
+                  survey_month, survey_year, season, season_year, survey_global_id) %>%
     dplyr::filter(!!as.symbol(selected_var_plots)>=start_range & !!as.symbol(selected_var_plots)<=end_range)
 }
 
@@ -806,30 +806,30 @@ create_summary_col_table <- function(survey_collection_join, selected_plot_colty
     selected_var_plots<-"water_depth"
     df_summaryplot <- survey_collection_join %>%
       dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-      dplyr::filter(!if_any(c(survey_GlobalID, gid, collection_type, selected_var_plots), is.na)) %>%
+      dplyr::filter(!if_any(c(survey_global_id, gid, collection_type, selected_var_plots), is.na)) %>%
       dplyr::filter(collection_type==selected_plot_coltype) %>%
-      dplyr::select(gid, collection_type, survey_date, projects, 
+      dplyr::select(gid, collection_type, survey_datetime, project_ids, 
                     system_type, site_id, other_site_id, general_location_name, 
                     supervisor, username, recorder_first_name, recorder_last_name,
                     water_collect_date, water_control, water_control_type, water_depth,
                     water_vessel_material, water_vessel_color, water_vessel_label, 
                     water_collect_notes, was_filtered, lat_manual, long_manual,
                     survey_month, survey_year, season, season_year, 
-                    survey_GlobalID)
+                    survey_global_id)
   } else if (selected_plot_coltype == "sed_sample"){
     selected_var_plots<-"depth_core_collected"
     df_summaryplot <- survey_collection_join %>%
       dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-      filter(!if_any(c(survey_GlobalID, gid, collection_type, selected_var_plots), is.na)) %>%
+      filter(!if_any(c(survey_global_id, gid, collection_type, selected_var_plots), is.na)) %>%
       dplyr::filter(collection_type==selected_plot_coltype) %>%
-      dplyr::select(gid, collection_type, survey_date, projects, 
+      dplyr::select(gid, collection_type, survey_datetime, project_ids, 
                     system_type, site_id, other_site_id, general_location_name, 
                     supervisor, username, recorder_first_name, recorder_last_name, 
                     core_datetime_start, core_datetime_end,core_label,core_control,
                     core_method,depth_core_collected,core_length,core_diameter,
                     core_notes,subcores_taken,purpose_other_cores, lat_manual, long_manual,
                     survey_month, survey_year, season, season_year,
-                    survey_GlobalID)
+                    survey_global_id)
   }
   df_summaryplot %>%
     dplyr::filter(!!as.symbol(selected_var_plots)>=start_range & !!as.symbol(selected_var_plots)<=end_range)
@@ -863,8 +863,8 @@ create_plot_boxplot_site_month <- function(df_inrange, selected_var_plots) {
   plotTitle=sprintf("%s by Site and Month", selected_var_plots_fmt)
   ggplot(df_inrange %>%
            dplyr::filter(!if_any(c(selected_var_plots, site_id), is.na)) %>% 
-           dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
-           dplyr::mutate(month = format(survey_date, format="%b")) %>%
+           dplyr::mutate(survey_datetime = lubridate::ymd(survey_datetime, tz="UTC")) %>%
+           dplyr::mutate(month = format(survey_datetime, format="%b")) %>%
            dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
                                                        "Apr", "May", "Jun", 
                                                        "Jul", "Aug", "Sep", 
@@ -930,8 +930,9 @@ create_plot_splot_system_depth_month <- function(df_inrange, depth_var, selected
   # outputPngFileName <- file.path(outputPngFolder, paste0(sprintf("s123_%s_%s_system_month_depth_splot.png", dfname, selected_var_plots)))
   plotTitle=sprintf("%s by System, Depth, and Month", selected_var_plots_fmt)
   ggplot(df_inrange %>%
-           dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%           dplyr::mutate(survey_date = lubridate::ymd(survey_date, tz="UTC")) %>%
-           dplyr::mutate(month = format(survey_date, format="%b")) %>%
+           dplyr::mutate(system_type=factor(system_type, levels= c("Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))) %>%           
+           dplyr::mutate(survey_datetime = lubridate::ymd(survey_datetime, tz="UTC")) %>%
+           dplyr::mutate(month = format(survey_datetime, format="%b")) %>%
            dplyr::mutate(month=factor(month, levels= c("Jan", "Feb", "Mar", 
                                                        "Apr", "May", "Jun", 
                                                        "Jul", "Aug", "Sep", 

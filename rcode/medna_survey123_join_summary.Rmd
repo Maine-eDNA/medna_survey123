@@ -530,21 +530,6 @@ print(paste0("Percentage of survey records with crew information: ",round(perc_g
 ```
 
 # ENVIRONMENTAL MEASUREMENTS SUMMARY
-
-"survey_global_id"       "survey_datetime"           "survey_month"         
-"survey_year"           "project_ids"              "supervisor"            "username"             
-"recorder_first_name"   "recorder_last_name"    "system_type"           "site_id"              
-"other_site_id"         "general_location_name" "envmeas_date"          "envmeas_depth"        
-"envmeas_instrument"    "ctd_filename"          "ctd_notes"             "ysi_filename"         
-"ysi_model"             "ysi_serial_number"     "ysi_notes"             "secchi_depth"         
-"secchi_notes"          "niskin_number"         "niskin_notes"          "other_instruments"    
-"env_measurements"      "flow_rate"             "water_temp"            "salinity"             
-"ph"                    "par1"                  "par2"                  "turbidity"            
-"conductivity"          "do"                    "pheophytin"            "chla"                 
-"no3no2"                "no2"                   "nh4"                   "phosphate"            
-"bottom_substrate"      "lab_date"              "envmeas_notes"         "envmeas_GlobalID"     
-"survey_edit_datetime"      "survey_create_datetime"    "envmeas_create_date" 
-
 * Jun, Jul, Aug (Summer)
 * Sep, Oct, Nov (Fall)
 * Dec, Jan, Feb (Winter)
