@@ -64,8 +64,8 @@ CLEAN_SUBCORE_JOIN_FILENAME = "clean_subcore_join"
 ########################################
 # SURVEY123 BACKUP DIRECTORIES         #
 ########################################
-BACKUP_DIR = "your/data/backup/location"
-ATTACHMENTS_BACKUP_DIR = "your/attachments/backup/location"
+BACKUP_DIRS = ["your/data/backup/location"]
+ATTACHMENTS_BACKUP_DIRS = ["your/attachments/backup/location"]
 
 ########################################
 # FGDB ATTACHMENTS SETTINGS            #

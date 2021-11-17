@@ -122,7 +122,7 @@ site_ids_sfdf <- site_ids_gsheet %>%
   tidyr::separate(geom, into=c("lon","lat"),sep=",") %>% # reseparate out lat, long
   dplyr::rename(site_id = SiteID) %>%
   dplyr::rename(general_location_name = `General Location Name`) %>%
-  dplyr::rename(projects = `Intended Purpose`) %>%
+  dplyr::rename(project_ids = `Intended Purpose`) %>%
   dplyr::rename(system_type = `System Type`) %>%
   dplyr::rename(watershed_code = `Watershed Code`) %>%
   dplyr::rename(region_name = `Region Name`) %>%
@@ -157,6 +157,15 @@ clean_filter_join <- data.table::fread(paste0(inputFolder,'clean_filter_join.csv
 clean_subcore_join <- data.table::fread(paste0(inputFolder,'clean_subcore_join.csv'))
 ```
 
+```{r}
+length(na.omit(survey_envmeas_join$ph))
+
+survey_envmeas_join %>%
+  dplyr::mutate(ph=na_if(ph, "")) %>%
+      dplyr::filter(!if_any(c(ph, site_id), is.na))
+```
+
+
 ## Column names and number of rows
 ```{r}
 # displays column names & number of rows - 6589
@@ -172,12 +181,12 @@ nrow(clean_subcore_join);names(clean_subcore_join)
 ```{r}
 survey_sub <- add_seasons_df(survey_sub)
 survey_sub$system_type <- plyr::mapvalues(survey_sub$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-survey_sub <- survey_sub %>% dplyr::rename(gid = survey_GlobalID)
+survey_sub <- survey_sub %>% dplyr::rename(gid = survey_global_id)
 
 # add seasons to survey_crew_join
 survey_crew_join <- add_seasons_df(survey_crew_join)
 survey_crew_join$system_type <- plyr::mapvalues(survey_crew_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-survey_crew_join <- survey_crew_join %>% dplyr::rename(gid = crew_GlobalID)
+survey_crew_join <- survey_crew_join %>% dplyr::rename(gid = crew_global_id)
 
 # add seasons to survey_collection_join
 survey_collection_join <- add_seasons_df(survey_collection_join)
@@ -307,7 +316,7 @@ dev.off()
 #knitr::include_graphics(outputPngFileName)
 #rm(WBD_sfdf,ME_coast_sfdf)
 
-#site_ids_sfdf$projects
+#site_ids_sfdf$project_ids
 ```
 
 ## Map of Index Sites (zoomed in)
@@ -327,7 +336,7 @@ ggplot() +
   geom_sf(data=lakes_sfdf, color="lightblue", fill="lightblue") +
   geom_sf(data=rivers_sfdf, color="lightblue", fill="lightblue") +
   geom_sf(data=site_ids_sfdf %>%
-            dplyr::mutate(prj_sub = gsub(",", " ", projects)) %>%
+            dplyr::mutate(prj_sub = gsub(",", " ", project_ids)) %>%
             dplyr::mutate(prj_sub = gsub("[()]", "",prj_sub)) %>%
             dplyr::filter(grepl(paste(project_list, collapse="|"), prj_sub)), 
           aes(fill=watershed_code),pch=21, color="black", alpha=0.7) +
@@ -513,7 +522,7 @@ dev.off()
 nrow(survey_sub)
 
 unique_survey_gids <- unique(survey_sub$gid)
-unique_envmeas_survey_gids <- unique(survey_crew_join$survey_GlobalID) 
+unique_envmeas_survey_gids <- unique(survey_crew_join$survey_global_id) 
 
 perc_gids<-(length(unique_envmeas_survey_gids)/length(unique_survey_gids))*100
 print(paste0("Percentage of survey records with crew information: ",round(perc_gids,2),"%"))
@@ -522,8 +531,8 @@ print(paste0("Percentage of survey records with crew information: ",round(perc_g
 
 # ENVIRONMENTAL MEASUREMENTS SUMMARY
 
-"survey_GlobalID"       "survey_date"           "survey_month"         
-"survey_year"           "projects"              "supervisor"            "username"             
+"survey_global_id"       "survey_datetime"           "survey_month"         
+"survey_year"           "project_ids"              "supervisor"            "username"             
 "recorder_first_name"   "recorder_last_name"    "system_type"           "site_id"              
 "other_site_id"         "general_location_name" "envmeas_date"          "envmeas_depth"        
 "envmeas_instrument"    "ctd_filename"          "ctd_notes"             "ysi_filename"         
@@ -534,7 +543,7 @@ print(paste0("Percentage of survey records with crew information: ",round(perc_g
 "conductivity"          "do"                    "pheophytin"            "chla"                 
 "no3no2"                "no2"                   "nh4"                   "phosphate"            
 "bottom_substrate"      "lab_date"              "envmeas_notes"         "envmeas_GlobalID"     
-"survey_edit_date"      "survey_create_date"    "envmeas_create_date" 
+"survey_edit_datetime"      "survey_create_datetime"    "envmeas_create_date" 
 
 * Jun, Jul, Aug (Summer)
 * Sep, Oct, Nov (Fall)
@@ -559,8 +568,8 @@ nrow(survey_envmeas_join[survey_envmeas_join$env_measurements == "" | is.na(surv
 ```{r}
 nrow(survey_sub)
 
-unique_survey_gids <- unique(survey_sub$survey_GlobalID)
-unique_envmeas_survey_gids <- unique(survey_envmeas_join$survey_GlobalID) 
+unique_survey_gids <- unique(survey_sub$survey_global_id)
+unique_envmeas_survey_gids <- unique(survey_envmeas_join$survey_global_id) 
 
 perc_gids<-(length(unique_envmeas_survey_gids)/length(unique_survey_gids))*100
 print(paste0("Percentage of survey records with environmental measurements: ",round(perc_gids,2),"%"))
@@ -901,7 +910,7 @@ max(survey_envmeas_join$water_temp, na.rm=TRUE)
 ## Environmental measurement where water temperature is greater than 50
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_date, site_id, general_location_name, water_temp, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_datetime, site_id, general_location_name, water_temp, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
   dplyr::filter(!if_any(c(water_temp, site_id), is.na) & water_temp>50)
 ```
 
@@ -1096,7 +1105,7 @@ max(survey_envmeas_join$salinity, na.rm=TRUE)
 ## Environmental measurements where turbidity is greater than 40
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_date, site_id, general_location_name, salinity, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_datetime, site_id, general_location_name, salinity, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          dplyr::filter(!if_any(c(salinity, site_id), is.na) & salinity>40)
 ```
 
@@ -1274,7 +1283,7 @@ max(survey_envmeas_join$turbidity, na.rm=TRUE)
 ## Environmental measurements where turbidity is greater than 40
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_date, site_id, general_location_name, turbidity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_datetime, site_id, general_location_name, turbidity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          dplyr::filter(!if_any(c(turbidity, site_id), is.na) & turbidity>40)
 ```
 
@@ -1453,7 +1462,7 @@ max(survey_envmeas_join$conductivity, na.rm=TRUE)
 ## Environmental measurements where conductivity is less than 100
 ```{r}
 survey_envmeas_join %>%
-  dplyr::select(survey_date, site_id, general_location_name, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+  dplyr::select(survey_datetime, site_id, general_location_name, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
   dplyr::filter(!if_any(c(conductivity, site_id), is.na) & conductivity<100)
 ```
 
@@ -1629,7 +1638,7 @@ max(survey_envmeas_join$do, na.rm=TRUE)
 ## Environmental measurements where dissolved oxygen is greater than 50
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_date, site_id, general_location_name, do, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_datetime, site_id, general_location_name, do, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          filter(!if_any(c(do, site_id), is.na) & do>50)
 ```
 
@@ -1807,7 +1816,7 @@ max(survey_envmeas_join$par1, na.rm=TRUE)
 ## Environmental measurements where par1 is greater than 1000
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_date, site_id, general_location_name, par1, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_datetime, site_id, general_location_name, par1, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          dplyr::filter(!if_any(c(par1, site_id), is.na) & par1>1000)
 ```
 
@@ -1967,7 +1976,7 @@ max(survey_envmeas_join$par2, na.rm=TRUE)
 ## Environmental measurements where par2 is greater than 40
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_date, site_id, general_location_name, par2, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_datetime, site_id, general_location_name, par2, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          filter(!if_any(c(par2, site_id), is.na) & par2>40)
 ```
 
@@ -2118,25 +2127,25 @@ print(paste0("Percentage of site ids with collections that are sediment: ",round
 names(survey_collection_join)
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::filter(collection_type=="sed_sample") %>%
-  dplyr::select(collection_type, survey_date, projects, site_id, other_site_id, general_location_name, 
+  dplyr::select(collection_type, survey_datetime, project_ids, site_id, other_site_id, general_location_name, 
                 supervisor, username, recorder_first_name, recorder_last_name, 
                 core_datetime_start, core_datetime_end,core_label,core_control,
                 core_method,depth_core_collected,core_length,core_diameter,
                 core_notes,subcores_taken,purpose_other_cores) %>%
-  dplyr::arrange(survey_date)
+  dplyr::arrange(survey_datetime)
 
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::filter(collection_type=="water_sample") %>%
-  dplyr::select(collection_type, survey_date, projects, site_id, other_site_id, general_location_name, 
+  dplyr::select(collection_type, survey_datetime, project_ids, site_id, other_site_id, general_location_name, 
                 supervisor, username, recorder_first_name, recorder_last_name,
                 water_collect_date, water_control, water_control_type, water_depth,
                 water_vessel_material, water_vessel_color, water_vessel_label, 
                 water_collect_notes, was_filtered) %>%
-  dplyr::arrange(survey_date)
+  dplyr::arrange(survey_datetime)
 
 ```
 
@@ -2144,7 +2153,7 @@ survey_collection_join %>%
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, survey_year) %>% 
   dplyr::mutate(ct_year=paste0(collection_type, " ", survey_year)) %>%
   dplyr::group_by(ct_year) %>%
@@ -2164,7 +2173,7 @@ png(outputPngFileName,height=5,width=6, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, survey_year) %>% 
   dplyr::mutate(ct_year=paste0(collection_type, " ", survey_year)) %>%
   dplyr::group_by(ct_year) %>%
@@ -2191,7 +2200,7 @@ dev.off()
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, system_type) %>% 
   dplyr::mutate(ct_system=paste0(collection_type, " ", system_type)) %>%
   dplyr::group_by(ct_system) %>%
@@ -2212,7 +2221,7 @@ png(outputPngFileName,height=6,width=12, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, system_type) %>% 
   dplyr::mutate(ct_system=paste0(collection_type, " ", system_type)) %>%
   dplyr::group_by(ct_system) %>%
@@ -2241,7 +2250,7 @@ dev.off()
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, site_id) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id)) %>%
   dplyr::group_by(ct_sid) %>%
@@ -2261,7 +2270,7 @@ png(outputPngFileName,height=6,width=18, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, site_id) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id)) %>%
   dplyr::group_by(ct_sid) %>%
@@ -2290,7 +2299,7 @@ dev.off()
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, survey_year, site_id) %>% 
   dplyr::mutate(yr_sid=paste0(survey_year, " ", site_id)) %>%
   dplyr::group_by(yr_sid) %>%
@@ -2315,7 +2324,7 @@ dev.off()
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, survey_year, system_type) %>% 
   dplyr::mutate(yr_system=paste0(survey_year, " ", system_type)) %>%
   dplyr::group_by(yr_system) %>%
@@ -2336,7 +2345,7 @@ png(outputPngFileName,height=6,width=12, units='in', res=150)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, survey_year, system_type) %>% 
   dplyr::mutate(yr_system=paste0(survey_year, " ", system_type)) %>%
   dplyr::group_by(yr_system) %>%
@@ -2365,7 +2374,7 @@ dev.off()
 ```{r}
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, site_id, survey_year) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id, " ", survey_year)) %>%
   dplyr::group_by(ct_sid) %>%
@@ -2385,7 +2394,7 @@ png(outputPngFileName,height=6,width=90, units='in', res=300)
 
 ggplot(survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, collection_type), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::select(gid, collection_type, site_id, survey_year) %>% 
   dplyr::mutate(ct_sid=paste0(collection_type, " ", site_id, " ", survey_year)) %>%
   dplyr::group_by(ct_sid) %>%
@@ -2775,7 +2784,7 @@ max(survey_collection_join$water_depth, na.rm=TRUE)
 ## Water collections where water_depth is greater than 200
 ```{r}
 survey_collection_join %>%
-    dplyr::select(survey_date, site_id, general_location_name, water_depth, system_type) %>%
+    dplyr::select(survey_datetime, site_id, general_location_name, water_depth, system_type) %>%
            filter(!if_any(c(water_depth, site_id), is.na) & water_depth>200)
 ```
 
@@ -3054,14 +3063,14 @@ names(clean_filter_join)
 
 cids <-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::select(collection_GlobalID) %>% 
   dplyr::distinct(collection_GlobalID)
 
 
 cid_nitex<-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::select(collection_GlobalID, filter_type) %>% 
   dplyr::filter(filter_type=="nitex") %>%
   dplyr::distinct(collection_GlobalID) %>%
@@ -3069,7 +3078,7 @@ cid_nitex<-clean_filter_join %>%
 
 cid_other<-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::select(collection_GlobalID, filter_type) %>% 
   dplyr::filter(filter_type!="nitex") %>%
   #dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
@@ -3196,9 +3205,9 @@ create_table_count_filtertype_year(df_sub_prj)
 ```{r}
 clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-  filter(!if_any(c(survey_GlobalID, gid, season, filter_type, filter_label), is.na)) %>%
+  filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::filter(filter_type=="other") %>%
-  dplyr::select(filter_type, filter_type_other, survey_date, projects, site_id, other_site_id, general_location_name, 
+  dplyr::select(filter_type, filter_type_other, survey_datetime, project_ids, site_id, other_site_id, general_location_name, 
                 supervisor, username, recorder_first_name, recorder_last_name) %>%
   dplyr::arrange(filter_type_other)
 
@@ -3284,7 +3293,7 @@ dev.off()
 ```{r}
 dfname <- "Subcores"
 df_sub_prj<-subset_prj_df(clean_subcore_join %>%
-          dplyr::filter(!if_any(c(gid, survey_GlobalID, collection_GlobalID), is.na)), 
+          dplyr::filter(!if_any(c(gid, survey_global_id, collection_GlobalID), is.na)), 
           site_id_prjs, selected_projects)
 ```
 
