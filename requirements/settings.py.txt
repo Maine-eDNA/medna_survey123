@@ -64,7 +64,8 @@ CLEAN_SUBCORE_JOIN_FILENAME = "clean_subcore_join"
 ########################################
 # SURVEY123 BACKUP DIRECTORIES         #
 ########################################
-BACKUP_DIRS = ["your/data/backup/location"]
+ZIP_BACKUP_DIRS = ["your/data/backup/location"]
+UPLOAD_DATA_BACKUP_DIRS = ["your/data/backup/location"]
 ATTACHMENTS_BACKUP_DIRS = ["your/attachments/backup/location"]
 
 ########################################

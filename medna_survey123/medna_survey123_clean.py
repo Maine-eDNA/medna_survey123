@@ -25,18 +25,21 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 def run_download_upload(formats, download=True, upload=True, overwrite=True,
                         extract_attachments=True, join_tables=True,
-                        backup=True, attachments_backups=True):
+                        backup=True, attachments_backup=True):
     """
      run download and upload
     """
     try:
         api_logger.info("[START] run_download_upload")
+
         # if download is true, then call DownloadCleanJoinData to download from AGOL
         if download:
             for fmt in formats:
                 download_result = DownloadCleanJoinData(fmt, overwrite, extract_attachments, join_tables,
-                                                        backup, attachments_backups)
+                                                        backup, attachments_backup)
                 download_result.download_data()
+            if backup:
+                download_result.backup_upload_data()
         # if upload is true, then call UploadData to upload to Google Sheets
         if upload:
             for fmt in formats:
@@ -55,7 +58,7 @@ class DownloadCleanJoinData:
     :param extract_attachments: Boolean. If true, extract attachments from FGDB.
     :param join_tables: Boolean. If true, join and save cleaned original data to CSV.
     :param backup: Boolean. If true, save copy of zips downloaded from AGOL to desired backup location.
-    :param attachments_backups: Boolean. If true, save copy of attachments extracted from FGDB to desired backup location.
+    :param attachments_backup: Boolean. If true, save copy of attachments extracted from FGDB to desired backup location.
     :param main_input_dir: Primary directory for AGOL downloads.
     :param main_input_strip_dir: Primary directory for saving cleaned original data.
     :param survey123_item_id: Item ID of the file geodatabase
@@ -67,7 +70,7 @@ class DownloadCleanJoinData:
     :param attachments_dir: Primary directory for attachments extracted from FGDB.
     :param attachments_backup_dir: Primary backup directory for attachments extracted from FGDB.
     :param main_output_dir: Primary output directory for joined data.
-    :param backup_dirs: Primary backup directory for zips downloaded from AGOL.
+    :param zip_backup_dirs: Primary backup directory for zips downloaded from AGOL.
     :param survey_data: Filepath to cleaned eDNA_Sampling_v14_0.csv (strip /n within "")
     :param rep_crew: Filepath to cleaned rep_crew_1.csv (strip /n within "")
     :param rep_envmeas: Filepath to cleaned rep_envmeas_2.csv (strip /n within "")
@@ -83,7 +86,7 @@ class DownloadCleanJoinData:
                  extract_attachments=True,
                  join_tables=True,
                  backup=True,
-                 attachments_backups=True,
+                 attachments_backup=True,
                  main_input_dir=settings.MAIN_INPUT_DIR,
                  main_input_strip_dir=settings.MAIN_INPUT_STRIP_DIR,
                  survey123_item_id=settings.SURVEY123_ITEM_ID,
@@ -95,7 +98,8 @@ class DownloadCleanJoinData:
                  attachments_dir=settings.ATTACHMENTS_DIR,
                  attachments_backup_dirs=settings.ATTACHMENTS_BACKUP_DIRS,
                  main_output_dir=settings.MAIN_OUTPUT_DIR,
-                 backup_dirs=settings.BACKUP_DIRS,
+                 zip_backup_dirs=settings.ZIP_BACKUP_DIRS,
+                 upload_data_backup_dirs=settings.UPLOAD_DATA_BACKUP_DIRS,
                  survey_data=settings.SURVEY_DATA,
                  rep_crew=settings.REP_CREW,
                  rep_envmeas=settings.REP_ENVMEAS,
@@ -134,9 +138,10 @@ class DownloadCleanJoinData:
         self.main_output_dir = main_output_dir
         # Backup data and backup attachments boolean
         self.backup = backup
-        self.attachments_backups = attachments_backups
+        self.attachments_backup = attachments_backup
         # Backup dirs
-        self.backup_dirs = backup_dirs
+        self.zip_backup_dirs = zip_backup_dirs
+        self.upload_data_backup_dirs = upload_data_backup_dirs
         self.attachments_backup_dirs = attachments_backup_dirs
         # Cleaned original data (strip /n within "")
         self.survey_data = survey_data
@@ -168,7 +173,7 @@ class DownloadCleanJoinData:
         """
         Download formats from AGOL feature layer. If FGDB and extract_attachments is true, extract attachments.
         If overwrite is true, overwrite cleaned data. If join_tables, join clean data tables and export as CSV.
-        If backup, save downloaded AGOL zips to backup_dirs.
+        If backup, save downloaded AGOL zips to zip_backup_dirs.
         """
         try:
             api_logger.info("[START] download_data")
@@ -181,7 +186,7 @@ class DownloadCleanJoinData:
             output_dir = self.main_input_dir
             survey123_version = self.survey123_version
             survey123_item_id = self.survey123_item_id
-            backup_dirs = self.backup_dirs
+            zip_backup_dirs = self.zip_backup_dirs
             backup = self.backup
 
             today_date = date.today()
@@ -207,8 +212,9 @@ class DownloadCleanJoinData:
                     # Download the data
                     result.download(save_path=output_dir, file_name=output_file_name)
                     if backup:
-                        api_logger.info("download_data: backing up [" + output_file_name + "] to [" + backup_dirs + "]")
-                        for dir_backup in backup_dirs:
+                        for dir_backup in zip_backup_dirs:
+                            api_logger.info(
+                                "download_data: backing up [" + output_file_name + "] to [" + dir_backup + "]")
                             copy2(output_file_path, dir_backup)
                     api_logger.info("download_data: unzipping "+output_file_name)
                     zip_file = ZipFile(output_file_path)
@@ -227,7 +233,7 @@ class DownloadCleanJoinData:
 
     def extract_attachments_fgdb(self, fgdb_filename):
         """
-        If FGDB and extract_attachments is true, extract attachments. If attachments_backups is true,
+        If FGDB and extract_attachments is true, extract attachments. If attachments_backup is true,
         save extracted attachments to attachments_backup_dirs.
         """
         try:
@@ -236,7 +242,7 @@ class DownloadCleanJoinData:
             blob_field = self.blob_field
             attachments_field = self.attachments_field
             attachments_dir = self.attachments_dir
-            attachments_backups = self.attachments_backups
+            attachments_backup = self.attachments_backup
             attachments_backup_dirs = self.attachments_backup_dirs
 
             attachments_table = main_input_dir + fgdb_filename + '/rep_img__ATTACH'
@@ -247,9 +253,10 @@ class DownloadCleanJoinData:
                     file_name = row[1]
                     # save to disk
                     open(attachments_dir + os.sep + file_name, 'wb').write(binary_rep.tobytes())
-            if attachments_backups:
-                api_logger.info("extract_attachments_fgdb: backing up attachments")
+            if attachments_backup:
                 for dir_backup in attachments_backup_dirs:
+                    api_logger.info(
+                        "extract_attachments_fgdb: backing up attachments to [" + dir_backup + "]")
                     copy_tree(attachments_dir, dir_backup)
             api_logger.info("[END] extract_attachments_fgdb")
         except Exception as err:
@@ -669,7 +676,6 @@ class DownloadCleanJoinData:
             output_file = self.main_output_dir + self.filter_sub_filename + ".csv"
             rep_filter_sub.to_csv(output_file, encoding='utf-8')
             api_logger.info("[END] subset_filter_dataset")
-
             return rep_filter_sub
         except Exception as err:
             raise RuntimeError("** Error: subset_filter_dataset Failed (" + str(err) + ")")
@@ -919,6 +925,21 @@ class DownloadCleanJoinData:
             api_logger.info("[END] join_data")
         except Exception as err:
             raise RuntimeError("** Error: join_data Failed (" + str(err) + ")")
+
+    def backup_upload_data(self):
+        """
+        Backup subset, joined, and cleaned CSVs to desired backup dirs
+        """
+        try:
+            api_logger.info("[START] backup_upload_data")
+            upload_data_backup_dirs = self.upload_data_backup_dirs
+            main_output_dir = self.main_output_dir
+            for dir_backup in upload_data_backup_dirs:
+                api_logger.info("backup_upload_data: backing up [" + main_output_dir + "] to [" + dir_backup + "]")
+                copy2(main_output_dir, dir_backup)
+            api_logger.info("[END] backup_upload_data")
+        except Exception as err:
+            raise RuntimeError("** Error: backup_data Failed (" + str(err) + ")")
 
 
 class UploadData:
