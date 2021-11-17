@@ -4,7 +4,7 @@ Download from ArcGIS Online, clean and join tables, and upload data to google sh
 Created By: mkimble
 """
 
-import re, os, arcpy
+import re, os, arcpy, glob
 from shutil import copy2
 from distutils.dir_util import copy_tree
 from . import settings
@@ -936,7 +936,10 @@ class DownloadCleanJoinData:
             main_output_dir = self.main_output_dir
             for dir_backup in upload_data_backup_dirs:
                 api_logger.info("backup_upload_data: backing up [" + main_output_dir + "] to [" + dir_backup + "]")
-                copy_tree(main_output_dir, dir_backup)
+                upload_files = glob.iglob(os.path.join(main_output_dir, "*.csv"))
+                for file in upload_files:
+                    if os.path.isfile(file):
+                        copy2(file, dir_backup)
             api_logger.info("[END] backup_upload_data")
         except Exception as err:
             raise RuntimeError("** Error: backup_data Failed (" + str(err) + ")")
