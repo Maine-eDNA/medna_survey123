@@ -305,12 +305,20 @@ class DownloadCleanJoinData:
                                          'username', 'Recorder First Name',
                                          'Recorder Last Name', 'Site ID', 'Other Site ID', 'General Location Name',
                                          'Latitude', 'Longitude', 'gps_cap_lat', 'gps_cap_long',
+                                         'gps_cap_alt', 'gps_cap_horacc', 'gps_cap_vertacc',
+                                         'Arrival DateTime', 'Water Turbidity', 'Precipitation',
+                                         'Wind Speed', 'Cloud Cover', 'Biome', 'Other Biome',
+                                         'Feature', 'Other Feature', 'Material', 'Other Material',
+                                         'Environmental Notes', 'Measurement Mode', 'Boat Type',
+                                         'Bottom Depth', 'Measurements Taken', 'Designated Sub-Corer',
+                                         'Designated Filterer', 'Survey Complete', 'QA Editor',
+                                         'QA DateTime', 'QA Initials', 'x', 'y', 
                                          'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename fields to remove spaces
-            survey_sub = survey_sub.rename(columns={'GlobalID': 'survey_GlobalID',
-                                                    'Survey DateTime': 'survey_date',
+            survey_sub = survey_sub.rename(columns={'GlobalID': 'survey_global_id',
+                                                    'Survey DateTime': 'survey_datetime',
                                                     'Supervisor': 'supervisor',
-                                                    'Affiliated Projects': 'projects',
+                                                    'Affiliated Projects': 'project_ids',
                                                     'Recorder First Name': 'recorder_first_name',
                                                     'Recorder Last Name': 'recorder_last_name',
                                                     'Site ID': 'site_id',
@@ -318,19 +326,41 @@ class DownloadCleanJoinData:
                                                     'General Location Name': 'general_location_name',
                                                     'Latitude': 'lat_manual',
                                                     'Longitude': 'long_manual',
-                                                    'CreationDate': 'survey_create_date',
+                                                    'Arrival DateTime': 'arrival_datetime', 
+                                                    'Water Turbidity': 'env_obs_turbidity', 
+                                                    'Precipitation': 'env_obs_precip',
+                                                    'Wind Speed': 'env_obs_wind_speed', 
+                                                    'Cloud Cover': 'env_obs_cloud_cover', 
+                                                    'Biome': 'env_biome', 
+                                                    'Other Biome': 'env_biome_other',
+                                                    'Feature': 'env_feature', 
+                                                    'Other Feature': 'env_feature_other', 
+                                                    'Material': 'env_material', 
+                                                    'Other Material': 'env_material_other', 
+                                                    'Environmental Notes': 'env_notes', 
+                                                    'Measurement Mode': 'env_measure_mode', 
+                                                    'Boat Type': 'env_boat_type',
+                                                    'Bottom Depth': 'env_bottom_depth', 
+                                                    'Measurements Taken': 'measurements_taken', 
+                                                    'Designated Sub-Corer': 'core_subcorer',
+                                                    'Designated Filterer': 'water_filterer', 
+                                                    'Survey Complete': 'survey_complete', 
+                                                    'QA Editor': 'qa_editor',
+                                                    'QA DateTime': 'qa_datetime', 
+                                                    'QA Initials': 'qa_initial', 
+                                                    'CreationDate': 'survey_create_datetime',
                                                     'Creator': 'survey_creator',
-                                                    'EditDate': 'survey_edit_date',
+                                                    'EditDate': 'survey_edit_datetime',
                                                     'Editor': 'survey_editor'
                                                     })
             # format date and add month and year columns
-            survey_sub['survey_date'] = pd.to_datetime(survey_sub.survey_date)
-            survey_sub['survey_month'] = survey_sub['survey_date'].dt.strftime('%m')
-            survey_sub['survey_year'] = survey_sub['survey_date'].dt.strftime('%Y')
-            survey_sub['survey_date'] = survey_sub['survey_date'].dt.strftime('%m/%d/%Y')
+            survey_sub['survey_datetime'] = pd.to_datetime(survey_sub.survey_datetime)
+            survey_sub['survey_month'] = survey_sub['survey_datetime'].dt.strftime('%m')
+            survey_sub['survey_year'] = survey_sub['survey_datetime'].dt.strftime('%Y')
+            survey_sub['survey_datetime'] = survey_sub['survey_datetime'].dt.strftime('%m/%d/%Y')
 
             # replace project codes with project names
-            survey_sub['projects'] = survey_sub['projects'].replace(projects_dict, regex=True)
+            survey_sub['project_ids'] = survey_sub['project_ids'].replace(projects_dict, regex=True)
 
             # convert to category for more efficient indexing
             survey_sub['site_id'] = survey_sub['site_id'].astype('category')
@@ -355,15 +385,24 @@ class DownloadCleanJoinData:
             # be linked (changes in one will affect the other). Also raises SettingwithCopyWarning if not present.
             survey_sub_output = survey_sub.copy()
             # subset
-            survey_sub_output = survey_sub_output[['survey_GlobalID', 'survey_date', 'survey_month', 'survey_year',
-                                                   'projects', 'supervisor', 'username', 'recorder_first_name',
+            survey_sub_output = survey_sub_output[['survey_global_id', 'survey_datetime', 'survey_month', 'survey_year',
+                                                   'project_ids', 'supervisor', 'username', 'recorder_first_name',
                                                    'recorder_last_name', 'system_type', 'site_id', 'other_site_id',
                                                    'general_location_name',
                                                    'lat_manual', 'long_manual', 'gps_cap_lat', 'gps_cap_long',
-                                                   'survey_create_date', 'survey_creator',
-                                                   'survey_edit_date', 'survey_editor']].copy()
-            survey_sub_output['survey_date'] = pd.to_datetime(survey_sub_output.survey_date)
-            survey_sub_output = survey_sub_output.sort_values(by=['survey_date', 'survey_GlobalID']).reset_index(drop=True)
+                                                   'arrival_datetime', 'env_obs_turbidity',
+                                                   'env_obs_precip', 'env_obs_wind_speed', 'env_obs_cloud_cover',
+                                                   'env_biome', 'env_biome_other',
+                                                   'env_feature', 'env_feature_other',
+                                                   'env_material', 'env_material_other',
+                                                   'env_notes', 'env_measure_mode',
+                                                   'env_boat_type', 'env_bottom_depth', 'measurements_taken',
+                                                   'core_subcorer', 'water_filterer',
+                                                   'survey_complete', 'qa_editor', 'qa_datetime', 'qa_initial',
+                                                   'survey_create_datetime', 'survey_creator',
+                                                   'survey_edit_datetime', 'survey_editor']].copy()
+            survey_sub_output['survey_datetime'] = pd.to_datetime(survey_sub_output.survey_datetime)
+            survey_sub_output = survey_sub_output.sort_values(by=['survey_datetime', 'survey_global_id']).reset_index(drop=True)
 
             # write eDNA_Sampling_v14_sub to csv
             api_logger.info("subset_survey_dataset: To CSV " + self.survey_sub_filename)
@@ -384,13 +423,13 @@ class DownloadCleanJoinData:
                                         'Crew First Name', 'Crew Last Name',
                                         'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
-            rep_crew_sub = rep_crew_sub.rename(columns={'GlobalID': 'crew_GlobalID',
+            rep_crew_sub = rep_crew_sub.rename(columns={'GlobalID': 'crew_global_id',
                                                         'ParentGlobalID': 'crew_ParentGlobalID',
                                                         'Crew First Name': 'crew_fname',
                                                         'Crew Last Name': 'crew_lname',
-                                                        'CreationDate': 'crew_create_date',
+                                                        'CreationDate': 'crew_create_datetime',
                                                         'Creator': 'crew_creator',
-                                                        'EditDate': 'crew_edit_date',
+                                                        'EditDate': 'crew_edit_datetime',
                                                         'Editor': 'crew_editor'})
 
             # write crew_sub to csv
@@ -459,9 +498,9 @@ class DownloadCleanJoinData:
                                                               'Bottom Substrate': 'bottom_substrate',
                                                               'Lab DateTime': 'lab_date',
                                                               'Measurement Notes': 'envmeas_notes',
-                                                              'CreationDate': 'envmeas_create_date',
+                                                              'CreationDate': 'envmeas_create_datetime',
                                                               'Creator': 'envmeas_creator',
-                                                              'EditDate': 'envmeas_edit_date',
+                                                              'EditDate': 'envmeas_edit_datetime',
                                                               'Editor': 'envmeas_editor'
                                                               })
 
@@ -564,9 +603,9 @@ class DownloadCleanJoinData:
                                                                     'Sub-Core Diameter': 'subcore_diameter',
                                                                     'Sub-Core Consistency Layer': 'subcore_consistency_layer',
                                                                     'Purpose of Other Cores': 'purpose_other_cores',
-                                                                    'CreationDate': 'collection_create_date',
+                                                                    'CreationDate': 'collection_create_datetime',
                                                                     'Creator': 'collection_creator',
-                                                                    'EditDate': 'collection_edit_date',
+                                                                    'EditDate': 'collection_edit_datetime',
                                                                     'Editor': 'collection_editor'})
 
             # write collection_sub to csv
@@ -612,9 +651,9 @@ class DownloadCleanJoinData:
                                                             'Filter Pore Size': 'filter_pore',
                                                             'Filter Size': 'filter_size',
                                                             'Filter Notes': 'filter_notes',
-                                                            'CreationDate': 'filter_create_date',
+                                                            'CreationDate': 'filter_create_datetime',
                                                             'Creator': 'filter_creator',
-                                                            'EditDate': 'filter_edit_date',
+                                                            'EditDate': 'filter_edit_datetime',
                                                             'Editor': 'filter_editor'})
             # change all filter_type to lower case
             rep_filter_sub['filter_type'] = rep_filter_sub['filter_type'].str.lower()
@@ -649,25 +688,25 @@ class DownloadCleanJoinData:
 
             # join eDNA_Sampling_v13_sub to rep_crew
             survey_crew_join = pd.merge(rep_crew_sub, survey_sub, how='left',
-                                        left_on='crew_ParentGlobalID', right_on='survey_GlobalID')
+                                        left_on='crew_ParentGlobalID', right_on='survey_global_id')
 
             survey_crew_join_output = survey_crew_join.copy()
             # subset
-            survey_crew_join_output = survey_crew_join_output[['survey_GlobalID',
-                                                               'survey_date', 'survey_month', 'survey_year',
-                                                               'projects', 'supervisor', 'username',
+            survey_crew_join_output = survey_crew_join_output[['survey_global_id',
+                                                               'survey_datetime', 'survey_month', 'survey_year',
+                                                               'project_ids', 'supervisor', 'username',
                                                                'recorder_first_name', 'recorder_last_name',
                                                                'system_type', 'site_id', 'other_site_id',
                                                                'general_location_name',
                                                                'crew_fname', 'crew_lname',
-                                                               'crew_GlobalID', 'crew_ParentGlobalID',
-                                                               'survey_edit_date', 'survey_create_date',
-                                                               'crew_create_date',
+                                                               'crew_global_id', 'crew_ParentGlobalID',
+                                                               'survey_edit_datetime', 'survey_create_datetime',
+                                                               'crew_create_datetime',
                                                                'lat_manual', 'long_manual',
                                                                'gps_cap_lat', 'gps_cap_long']].copy()
-            survey_crew_join_output['survey_date'] = pd.to_datetime(survey_crew_join_output.survey_date)
-            survey_crew_join_output = survey_crew_join_output.sort_values(by=['survey_date',
-                                                                              'survey_GlobalID']).reset_index(drop=True)
+            survey_crew_join_output['survey_datetime'] = pd.to_datetime(survey_crew_join_output.survey_datetime)
+            survey_crew_join_output = survey_crew_join_output.sort_values(by=['survey_datetime',
+                                                                              'survey_global_id']).reset_index(drop=True)
 
             # remove records without a specified first or last name
             survey_crew_join_output['crew_fname'].replace('', np.nan, inplace=True)
@@ -681,13 +720,13 @@ class DownloadCleanJoinData:
 
             # join eDNA_Sampling_v13_sub to rep_envmeas
             survey_envmeas_join = pd.merge(rep_envmeas_sub, survey_sub, how='left',
-                                           left_on='envmeas_ParentGlobalID', right_on='survey_GlobalID')
+                                           left_on='envmeas_ParentGlobalID', right_on='survey_global_id')
 
             survey_envmeas_join_output = survey_envmeas_join.copy()
             # subset
-            survey_envmeas_join_output = survey_envmeas_join_output[['survey_GlobalID',
-                                                                     'survey_date',
-                                                                     'survey_month', 'survey_year', 'projects',
+            survey_envmeas_join_output = survey_envmeas_join_output[['survey_global_id',
+                                                                     'survey_datetime',
+                                                                     'survey_month', 'survey_year', 'project_ids',
                                                                      'supervisor', 'username',
                                                                      'recorder_first_name', 'recorder_last_name',
                                                                      'system_type', 'site_id', 'other_site_id',
@@ -709,13 +748,13 @@ class DownloadCleanJoinData:
                                                                      'lab_date',
                                                                      'envmeas_notes',
                                                                      'envmeas_GlobalID',
-                                                                     'survey_edit_date', 'survey_create_date',
-                                                                     'envmeas_create_date',
+                                                                     'survey_edit_datetime', 'survey_create_datetime',
+                                                                     'envmeas_create_datetime',
                                                                      'lat_manual', 'long_manual',
                                                                      'gps_cap_lat', 'gps_cap_long']].copy()
-            survey_envmeas_join_output['survey_date'] = pd.to_datetime(survey_envmeas_join_output.survey_date)
-            survey_envmeas_join_output = survey_envmeas_join_output.sort_values(by=['survey_date',
-                                                                                    'survey_GlobalID']).reset_index(drop=True)
+            survey_envmeas_join_output['survey_datetime'] = pd.to_datetime(survey_envmeas_join_output.survey_datetime)
+            survey_envmeas_join_output = survey_envmeas_join_output.sort_values(by=['survey_datetime',
+                                                                                    'survey_global_id']).reset_index(drop=True)
 
             # change all env_measurements to lower case
             survey_envmeas_join_output['env_measurements'] = survey_envmeas_join_output['env_measurements'].str.lower()
@@ -731,12 +770,12 @@ class DownloadCleanJoinData:
 
             # join eDNA_Sampling_v13_sub to rep_collection & split into subcore_sub
             survey_collection_join = pd.merge(rep_collection_sub, survey_sub, how='left',
-                                              left_on='collection_ParentGlobalID', right_on='survey_GlobalID')
+                                              left_on='collection_ParentGlobalID', right_on='survey_global_id')
 
             survey_collection_join_output = survey_collection_join.copy()
             # subset
-            survey_collection_join_output = survey_collection_join_output[['survey_GlobalID', 'survey_date',
-                                                                           'survey_month', 'survey_year', 'projects',
+            survey_collection_join_output = survey_collection_join_output[['survey_global_id', 'survey_datetime',
+                                                                           'survey_month', 'survey_year', 'project_ids',
                                                                            'supervisor', 'username',
                                                                            'recorder_first_name', 'recorder_last_name',
                                                                            'system_type', 'site_id', 'other_site_id',
@@ -763,13 +802,14 @@ class DownloadCleanJoinData:
                                                                            'subcore_consistency_layer',
                                                                            'purpose_other_cores',
                                                                            'collection_GlobalID',
-                                                                           'survey_edit_date', 'survey_create_date',
-                                                                           'collection_create_date',
+                                                                           'survey_edit_datetime',
+                                                                           'survey_create_datetime',
+                                                                           'collection_create_datetime',
                                                                            'lat_manual', 'long_manual',
                                                                            'gps_cap_lat', 'gps_cap_long']].copy()
 
-            survey_collection_join_output['survey_date'] = pd.to_datetime(survey_collection_join_output.survey_date)
-            survey_collection_join_output = survey_collection_join_output.sort_values(by=['survey_date', 'survey_GlobalID']).reset_index(drop=True)
+            survey_collection_join_output['survey_datetime'] = pd.to_datetime(survey_collection_join_output.survey_datetime)
+            survey_collection_join_output = survey_collection_join_output.sort_values(by=['survey_datetime', 'survey_global_id']).reset_index(drop=True)
 
             # change all collection_type to lower case
             survey_collection_join_output['collection_type'] = survey_collection_join_output['collection_type'].str.lower()
@@ -785,8 +825,8 @@ class DownloadCleanJoinData:
             subcore_sub = survey_collection_join_output[(survey_collection_join_output['collection_type'] == 'sed_sample') &
                                                         (survey_collection_join_output['subcores_taken'] == 'yes')]
 
-            survey_subcore_join = subcore_sub[['survey_GlobalID', 'survey_date',
-                                               'survey_month', 'survey_year', 'projects',
+            survey_subcore_join = subcore_sub[['survey_global_id', 'survey_datetime',
+                                               'survey_month', 'survey_year', 'project_ids',
                                                'supervisor', 'username',
                                                'recorder_first_name', 'recorder_last_name',
                                                'system_type', 'site_id', 'other_site_id',
@@ -799,8 +839,8 @@ class DownloadCleanJoinData:
                                                'subcore_diameter', 'subcore_consistency_layer',
                                                'purpose_other_cores',
                                                'collection_GlobalID',
-                                               'survey_edit_date', 'survey_create_date',
-                                               'collection_create_date',
+                                               'survey_edit_datetime', 'survey_create_datetime',
+                                               'collection_create_datetime',
                                                'lat_manual', 'long_manual',
                                                'gps_cap_lat', 'gps_cap_long']].copy()
 
@@ -810,8 +850,8 @@ class DownloadCleanJoinData:
 
             clean_subcore_join['sample_global_id'] = clean_subcore_join['collection_GlobalID'] + '-SC' + clean_subcore_join.index.astype(str)
 
-            survey_collection_join_output = survey_collection_join_output[['survey_GlobalID', 'survey_date',
-                                                                           'survey_month', 'survey_year', 'projects',
+            survey_collection_join_output = survey_collection_join_output[['survey_global_id', 'survey_datetime',
+                                                                           'survey_month', 'survey_year', 'project_ids',
                                                                            'supervisor', 'username',
                                                                            'recorder_first_name', 'recorder_last_name',
                                                                            'system_type', 'site_id', 'other_site_id',
@@ -830,8 +870,8 @@ class DownloadCleanJoinData:
                                                                            'subcores_taken',
                                                                            'purpose_other_cores',
                                                                            'collection_GlobalID',
-                                                                           'survey_edit_date', 'survey_create_date',
-                                                                           'collection_create_date',
+                                                                           'survey_edit_datetime', 'survey_create_datetime',
+                                                                           'collection_create_datetime',
                                                                            'lat_manual', 'long_manual',
                                                                            'gps_cap_lat', 'gps_cap_long']].copy()
 
@@ -855,20 +895,20 @@ class DownloadCleanJoinData:
             ss_filter_join['filter_label'].replace('', np.nan, inplace=True)
             ss_filter_join.dropna(subset=['filter_type', 'filter_label'], how='all', inplace=True)
             # reorder columns
-            clean_filter_join = ss_filter_join[['survey_GlobalID', 'survey_date', 'survey_month', 'survey_year',
-                                                'projects', 'supervisor', 'username', 'recorder_first_name',
+            clean_filter_join = ss_filter_join[['survey_global_id', 'survey_datetime', 'survey_month', 'survey_year',
+                                                'project_ids', 'supervisor', 'username', 'recorder_first_name',
                                                 'recorder_last_name', 'system_type', 'site_id', 'other_site_id',
                                                 'general_location_name', 'collection_type',  'water_collect_date',
                                                 'water_vessel_label', 'water_collect_notes', 'filter_date',
                                                 'is_prefilter', 'filter_type', 'filter_type_other',
                                                 'filter_label', 'filter_barcode',
                                                 'filter_notes', 'collection_GlobalID', 'filter_GlobalID',
-                                                'survey_edit_date', 'survey_create_date', 'collection_create_date',
-                                                'filter_create_date',
+                                                'survey_edit_datetime', 'survey_create_datetime',
+                                                'collection_create_datetime', 'filter_create_datetime',
                                                 'lat_manual', 'long_manual', 'gps_cap_lat', 'gps_cap_long']].copy()
 
-            clean_filter_join['survey_date'] = pd.to_datetime(clean_filter_join.survey_date)
-            clean_filter_join = clean_filter_join.sort_values(by=['survey_date', 'survey_GlobalID', 'filter_date']).reset_index(drop=True)
+            clean_filter_join['survey_datetime'] = pd.to_datetime(clean_filter_join.survey_datetime)
+            clean_filter_join = clean_filter_join.sort_values(by=['survey_datetime', 'survey_global_id', 'filter_date']).reset_index(drop=True)
 
             # write clean_filter_join to csv
             api_logger.info("join_data: To CSV " + self.clean_filter_join_filename)
