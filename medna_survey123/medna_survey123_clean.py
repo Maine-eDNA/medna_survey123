@@ -307,7 +307,7 @@ class DownloadCleanJoinData:
             api_logger.info("[START] subset_survey_data")
             projects_dict = self.survey_projects
             # read in CSVs as df
-            survey_data_df = pd.read_csv(self.survey_data)
+            survey_data_df = pd.read_csv(self.survey_data, index_col=False)
 
             # grab specific fields from the csv
             survey_sub = survey_data_df[['GlobalID', 'Survey DateTime', 'Affiliated Projects', 'Supervisor',
@@ -427,7 +427,7 @@ class DownloadCleanJoinData:
         try:
             api_logger.info("[START] subset_crew_dataset")
             # read in CSVs as df
-            rep_crew_df = pd.read_csv(self.rep_crew)
+            rep_crew_df = pd.read_csv(self.rep_crew, index_col=False)
             rep_crew_sub = rep_crew_df[['GlobalID', 'ParentGlobalID',
                                         'Crew First Name', 'Crew Last Name',
                                         'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
@@ -455,7 +455,7 @@ class DownloadCleanJoinData:
         try:
             api_logger.info("[START] subset_envmeas_dataset")
             # read in CSVs as df
-            rep_envmeas_df = pd.read_csv(self.rep_envmeas)
+            rep_envmeas_df = pd.read_csv(self.rep_envmeas, index_col=False)
 
             # subset
             rep_envmeas_sub = rep_envmeas_df[['GlobalID', 'ParentGlobalID', 'Measurement DateTime',
@@ -527,7 +527,7 @@ class DownloadCleanJoinData:
         try:
             api_logger.info("[START] subset_collection_data")
             # read in CSVs as df
-            rep_collection_df = pd.read_csv(self.rep_collection)
+            rep_collection_df = pd.read_csv(self.rep_collection, index_col=False)
 
             # subset
             rep_collection_sub = rep_collection_df[['GlobalID',
@@ -631,7 +631,7 @@ class DownloadCleanJoinData:
         try:
             api_logger.info("[START] subset_filter_dataset")
             # read in CSVs as df
-            rep_filter_df = pd.read_csv(self.rep_filter)
+            rep_filter_df = pd.read_csv(self.rep_filter, index_col=False)
             # subset
             rep_filter_sub = rep_filter_df[['GlobalID', 'ParentGlobalID', 'Is Prefilter', 'Filter Location',
                                             'Filter Sample Label', 'Filterer First Name', 'Filterer Last Name',
