@@ -490,7 +490,7 @@ dev.off()
 create_table_count_month_year(survey_sub)
 ```
 
-## Barplot of survey records per month and year
+## Barplot of survey records per month and year - barSRMonthYear
 ```{r}
 plotTitle = "Count of survey records by month and year"
 # save plot in png format
@@ -895,7 +895,7 @@ max(survey_envmeas_join$water_temp, na.rm=TRUE)
 ## Environmental measurement where water temperature is greater than 50
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_datetime, site_id, general_location_name, water_temp, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_date, site_id, general_location_name, water_temp, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
   dplyr::filter(!if_any(c(water_temp, site_id), is.na) & water_temp>50)
 ```
 
@@ -1090,7 +1090,7 @@ max(survey_envmeas_join$salinity, na.rm=TRUE)
 ## Environmental measurements where turbidity is greater than 40
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_datetime, site_id, general_location_name, salinity, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_date, site_id, general_location_name, salinity, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          dplyr::filter(!if_any(c(salinity, site_id), is.na) & salinity>40)
 ```
 
@@ -1268,7 +1268,7 @@ max(survey_envmeas_join$turbidity, na.rm=TRUE)
 ## Environmental measurements where turbidity is greater than 40
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_datetime, site_id, general_location_name, turbidity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_date, site_id, general_location_name, turbidity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          dplyr::filter(!if_any(c(turbidity, site_id), is.na) & turbidity>40)
 ```
 
@@ -1447,7 +1447,7 @@ max(survey_envmeas_join$conductivity, na.rm=TRUE)
 ## Environmental measurements where conductivity is less than 100
 ```{r}
 survey_envmeas_join %>%
-  dplyr::select(survey_datetime, site_id, general_location_name, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+  dplyr::select(survey_date, site_id, general_location_name, conductivity, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
   dplyr::filter(!if_any(c(conductivity, site_id), is.na) & conductivity<100)
 ```
 
@@ -1623,7 +1623,7 @@ max(survey_envmeas_join$do, na.rm=TRUE)
 ## Environmental measurements where dissolved oxygen is greater than 50
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_datetime, site_id, general_location_name, do, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_date, site_id, general_location_name, do, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          filter(!if_any(c(do, site_id), is.na) & do>50)
 ```
 
@@ -1801,7 +1801,7 @@ max(survey_envmeas_join$par1, na.rm=TRUE)
 ## Environmental measurements where par1 is greater than 1000
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_datetime, site_id, general_location_name, par1, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_date, site_id, general_location_name, par1, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          dplyr::filter(!if_any(c(par1, site_id), is.na) & par1>1000)
 ```
 
@@ -1961,7 +1961,7 @@ max(survey_envmeas_join$par2, na.rm=TRUE)
 ## Environmental measurements where par2 is greater than 40
 ```{r}
 survey_envmeas_join %>%
-    dplyr::select(survey_datetime, site_id, general_location_name, par2, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
+    dplyr::select(survey_date, site_id, general_location_name, par2, envmeas_depth, envmeas_instrument, system_type, ysi_notes, envmeas_notes, env_measurements) %>%
          filter(!if_any(c(par2, site_id), is.na) & par2>40)
 ```
 
@@ -2114,23 +2114,23 @@ survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
   filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::filter(collection_type=="sed_sample") %>%
-  dplyr::select(collection_type, survey_datetime, project_ids, site_id, other_site_id, general_location_name, 
+  dplyr::select(collection_type, survey_date, project_ids, site_id, other_site_id, general_location_name,
                 supervisor, username, recorder_first_name, recorder_last_name, 
                 core_datetime_start, core_datetime_end,core_label,core_control,
                 core_method,depth_core_collected,core_length,core_diameter,
                 core_notes,subcores_taken,purpose_other_cores) %>%
-  dplyr::arrange(survey_datetime)
+  dplyr::arrange(survey_date)
 
 survey_collection_join %>%
   dplyr::mutate(collection_type=na_if(collection_type, "")) %>%
   filter(!if_any(c(survey_global_id, gid, season, collection_type), is.na)) %>%
   dplyr::filter(collection_type=="water_sample") %>%
-  dplyr::select(collection_type, survey_datetime, project_ids, site_id, other_site_id, general_location_name, 
+  dplyr::select(collection_type, survey_date, project_ids, site_id, other_site_id, general_location_name,
                 supervisor, username, recorder_first_name, recorder_last_name,
-                water_collect_date, water_control, water_control_type, water_depth,
+                water_collect_datetime, water_control, water_control_type, water_depth,
                 water_vessel_material, water_vessel_color, water_vessel_label, 
                 water_collect_notes, was_filtered) %>%
-  dplyr::arrange(survey_datetime)
+  dplyr::arrange(survey_date)
 
 ```
 
@@ -2769,7 +2769,7 @@ max(survey_collection_join$water_depth, na.rm=TRUE)
 ## Water collections where water_depth is greater than 200
 ```{r}
 survey_collection_join %>%
-    dplyr::select(survey_datetime, site_id, general_location_name, water_depth, system_type) %>%
+    dplyr::select(survey_date, site_id, general_location_name, water_depth, system_type) %>%
            filter(!if_any(c(water_depth, site_id), is.na) & water_depth>200)
 ```
 
@@ -3192,7 +3192,7 @@ clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
   filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
   dplyr::filter(filter_type=="other") %>%
-  dplyr::select(filter_type, filter_type_other, survey_datetime, project_ids, site_id, other_site_id, general_location_name, 
+  dplyr::select(filter_type, filter_type_other, survey_date, project_ids, site_id, other_site_id, general_location_name,
                 supervisor, username, recorder_first_name, recorder_last_name) %>%
   dplyr::arrange(filter_type_other)
 
