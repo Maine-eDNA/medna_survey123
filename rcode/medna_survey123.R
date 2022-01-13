@@ -195,7 +195,7 @@ create_table_filters_sids_fmt <- function(clean_filter_join, select_var_maps){
 
 create_table_subcores_sids <- function(clean_subcore_join) {
   rcdext_df <- create_table_sids(clean_subcore_join %>%
-                                   dplyr::filter(!if_any(c(gid, survey_global_id, collection_GlobalID), is.na)), 
+                                   dplyr::filter(!if_any(c(gid, survey_global_id, collection_global_id), is.na)),
                                  site_ids_sfdf)
   return(rcdext_df)
   

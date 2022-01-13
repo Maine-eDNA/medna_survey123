@@ -207,15 +207,15 @@ survey_crew_join <- survey_crew_join %>% dplyr::rename(gid=crew_global_id)
 # add seasons to survey_collection_join
 survey_collection_join <- add_seasons_df(survey_collection_join)
 survey_collection_join$system_type <- plyr::mapvalues(survey_collection_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-survey_collection_join <- survey_collection_join %>% dplyr::rename(gid=collection_GlobalID)
+survey_collection_join <- survey_collection_join %>% dplyr::rename(gid=collection_global_id)
 # add seasons to survey_envmeas_join
 survey_envmeas_join <- add_seasons_df(survey_envmeas_join)
 survey_envmeas_join$system_type <- plyr::mapvalues(survey_envmeas_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-survey_envmeas_join <- survey_envmeas_join %>% dplyr::rename(gid=envmeas_GlobalID)
+survey_envmeas_join <- survey_envmeas_join %>% dplyr::rename(gid=envmeas_global_id)
 # add seasons to clean_filter_join
 clean_filter_join <- add_seasons_df(clean_filter_join)
 clean_filter_join$system_type <- plyr::mapvalues(clean_filter_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-clean_filter_join <- clean_filter_join %>% dplyr::rename(gid=filter_GlobalID)
+clean_filter_join <- clean_filter_join %>% dplyr::rename(gid=filter_global_id)
 # remove any filter_labels with "delete"
 clean_filter_join <- clean_filter_join %>% 
   dplyr::mutate(filter_label_lower=tolower(filter_label)) %>%
@@ -670,7 +670,7 @@ navbarPage(
         perc_var_txt<-input$tab_maps
         proxy <- leafletProxy("map_subcores")
         df_map <- clean_subcore_join %>%
-          dplyr::filter(!if_any(c(gid, survey_global_id, collection_GlobalID), is.na))
+          dplyr::filter(!if_any(c(gid, survey_global_id, collection_global_id), is.na))
       }
       
       ## SURVEY SUMMARY MAP SETUP
@@ -880,21 +880,21 @@ navbarPage(
         if (selected_filtertype=="filter_type") {
           df_bplot <- clean_filter_join %>%
             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-            filter(!if_any(c(collection_GlobalID, gid, filter_type, filter_label), is.na))
+            filter(!if_any(c(collection_global_id, gid, filter_type, filter_label), is.na))
         } else {
           df_bplot <- clean_filter_join %>%
             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-            filter(!if_any(c(collection_GlobalID, gid, filter_type, filter_label), is.na) & filter_type==selected_filtertype)
+            filter(!if_any(c(collection_global_id, gid, filter_type, filter_label), is.na) & filter_type==selected_filtertype)
         }
         cids <- df_bplot %>%
-          distinct(collection_GlobalID)
+          distinct(collection_global_id)
         
         cids_filter <- df_bplot %>%
-          dplyr::select(collection_GlobalID, filter_type) %>% 
+          dplyr::select(collection_global_id, filter_type) %>%
           dplyr::mutate(is_nitex=factor(ifelse(filter_type=="nitex", "nitex", "not_nitex"))) %>%
-          dplyr::distinct(collection_GlobalID, is_nitex) %>%
-          dplyr::group_by(collection_GlobalID) %>%
-          dplyr::count(collection_GlobalID) %>%
+          dplyr::distinct(collection_global_id, is_nitex) %>%
+          dplyr::group_by(collection_global_id) %>%
+          dplyr::count(collection_global_id) %>%
           dplyr::group_by(n) %>%
           dplyr::count(n) %>%
           dplyr::mutate(perc_prefilter=(nn/nrow(cids))*100)
@@ -910,7 +910,7 @@ navbarPage(
         selected_barplot <- input$barplot_selected_subcores
         selected_project_ids <- input$barplot_selprj_subcores
         df_bplot <- clean_subcore_join %>%
-          dplyr::filter(!if_any(c(gid, survey_global_id, collection_GlobalID), is.na))
+          dplyr::filter(!if_any(c(gid, survey_global_id, collection_global_id), is.na))
       }
       selected_project_ids <- gsub("[()]", "", selected_project_ids)
       selected_project_ids <- tolower(selected_project_ids)

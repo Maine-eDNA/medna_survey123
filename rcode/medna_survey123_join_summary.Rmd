@@ -191,17 +191,17 @@ survey_crew_join <- survey_crew_join %>% dplyr::rename(gid = crew_global_id)
 # add seasons to survey_collection_join
 survey_collection_join <- add_seasons_df(survey_collection_join)
 survey_collection_join$system_type <- plyr::mapvalues(survey_collection_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-survey_collection_join <- survey_collection_join %>% dplyr::rename(gid = collection_GlobalID)
+survey_collection_join <- survey_collection_join %>% dplyr::rename(gid = collection_global_id)
 
 # add seasons to survey_envmeas_join
 survey_envmeas_join <- add_seasons_df(survey_envmeas_join)
 survey_envmeas_join$system_type <- plyr::mapvalues(survey_envmeas_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-survey_envmeas_join <- survey_envmeas_join %>% dplyr::rename(gid = envmeas_GlobalID)
+survey_envmeas_join <- survey_envmeas_join %>% dplyr::rename(gid = envmeas_global_id)
 
 # add seasons to clean_filter_join
 clean_filter_join <- add_seasons_df(clean_filter_join)
 clean_filter_join$system_type <- plyr::mapvalues(clean_filter_join$system_type, from=c("P", "C", "E", "S", "L", "A", "other"), to=c("Pelagic", "Coast", "Estuary", "Stream", "Lake", "Aquarium", "other"))
-clean_filter_join <- clean_filter_join %>% dplyr::rename(gid = filter_GlobalID)
+clean_filter_join <- clean_filter_join %>% dplyr::rename(gid = filter_global_id)
 # remove any filter_labels with "delete"
 clean_filter_join <- clean_filter_join %>% 
   dplyr::mutate(filter_label_lower=tolower(filter_label)) %>%
@@ -3033,7 +3033,7 @@ nrow(clean_filter_join[clean_filter_join$filter_label == "" | is.na(clean_filter
 dfname <- "Filters"
 df_sub_prj<-subset_prj_df(clean_filter_join %>%
             dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
-            filter(!if_any(c(collection_GlobalID, gid, filter_type, filter_label), is.na)), 
+            filter(!if_any(c(collection_global_id, gid, filter_type, filter_label), is.na)),
           site_id_prjs, selected_projects)
 
 ```
@@ -3041,42 +3041,42 @@ df_sub_prj<-subset_prj_df(clean_filter_join %>%
 
 ## Percentage of filters that have been prefiltered
 ```{r}
-# total collection_globalid with nitex
-# total collection_globalid not nitex
-# if they share a collection_globalid, then the collection was prefiltered
+# total collection_global_id with nitex
+# total collection_global_id not nitex
+# if they share a collection_global_id, then the collection was prefiltered
 names(clean_filter_join)
 
 cids <-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
   filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
-  dplyr::select(collection_GlobalID) %>% 
-  dplyr::distinct(collection_GlobalID)
+  dplyr::select(collection_global_id) %>%
+  dplyr::distinct(collection_global_id)
 
 
 cid_nitex<-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
   filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
-  dplyr::select(collection_GlobalID, filter_type) %>% 
+  dplyr::select(collection_global_id, filter_type) %>%
   dplyr::filter(filter_type=="nitex") %>%
-  dplyr::distinct(collection_GlobalID) %>%
+  dplyr::distinct(collection_global_id) %>%
   dplyr::mutate(filter_type="nitex")
 
 cid_other<-clean_filter_join %>%
   dplyr::mutate(filter_type=na_if(filter_type, "")) %>%
   filter(!if_any(c(survey_global_id, gid, season, filter_type, filter_label), is.na)) %>%
-  dplyr::select(collection_GlobalID, filter_type) %>% 
+  dplyr::select(collection_global_id, filter_type) %>%
   dplyr::filter(filter_type!="nitex") %>%
   #dplyr::mutate(filter_type=factor(filter_type, levels= c("nitex", "gff", "supor", "cn", "other"))) %>%
   #dplyr::arrange(filter_type) %>%
-  dplyr::distinct(collection_GlobalID) %>%
+  dplyr::distinct(collection_global_id) %>%
   dplyr::mutate(filter_type="not_nitex")
 
 nrow(cid_nitex) + nrow(cid_other)
 
 ## if there is a count of 2, then there was a prefilter and filter on the same water collection
 perc_prefilter<-dplyr::full_join(cid_nitex,cid_other) %>%
-  dplyr::group_by(collection_GlobalID) %>%
-  dplyr::count(collection_GlobalID) %>%
+  dplyr::group_by(collection_global_id) %>%
+  dplyr::count(collection_global_id) %>%
   dplyr::group_by(n) %>%
   dplyr::count(n) %>%
   dplyr::mutate(perc_prefilter=(nn/nrow(cids))*100)
@@ -3278,7 +3278,7 @@ dev.off()
 ```{r}
 dfname <- "Subcores"
 df_sub_prj<-subset_prj_df(clean_subcore_join %>%
-          dplyr::filter(!if_any(c(gid, survey_global_id, collection_GlobalID), is.na)), 
+          dplyr::filter(!if_any(c(gid, survey_global_id, collection_global_id), is.na)),
           site_id_prjs, selected_projects)
 ```
 

@@ -472,7 +472,7 @@ class DownloadCleanJoinData:
                                               'Measurement Notes',
                                               'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
-            rep_envmeas_sub = rep_envmeas_sub.rename(columns={'GlobalID': 'envmeas_GlobalID',
+            rep_envmeas_sub = rep_envmeas_sub.rename(columns={'GlobalID': 'envmeas_global_id',
                                                               'ParentGlobalID': 'envmeas_ParentGlobalID',
                                                               'Measurement DateTime': 'envmeas_datetime',
                                                               'Measurement Depth': 'envmeas_depth',
@@ -572,7 +572,7 @@ class DownloadCleanJoinData:
                                                     'Purpose of Other Cores',
                                                     'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
-            rep_collection_sub = rep_collection_sub.rename(columns={'GlobalID': 'collection_GlobalID',
+            rep_collection_sub = rep_collection_sub.rename(columns={'GlobalID': 'collection_global_id',
                                                                     'ParentGlobalID': 'collection_ParentGlobalID',
                                                                     'Collection Type': 'collection_type',
                                                                     'Water Collection DateTime': 'water_collect_datetime',
@@ -643,7 +643,7 @@ class DownloadCleanJoinData:
                                             'Filter Notes',
                                             'EditDate', 'Editor', 'CreationDate', 'Creator']].copy()
             # rename
-            rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_GlobalID',
+            rep_filter_sub = rep_filter_sub.rename(columns={'GlobalID': 'filter_global_id',
                                                             'ParentGlobalID': 'filter_ParentGlobalID',
                                                             'Filter Location': 'filter_location',
                                                             'Is Prefilter': 'is_prefilter',
@@ -756,7 +756,7 @@ class DownloadCleanJoinData:
                                                                      'nh4', 'phosphate', 'bottom_substrate',
                                                                      'lab_date',
                                                                      'envmeas_notes',
-                                                                     'envmeas_GlobalID',
+                                                                     'envmeas_global_id',
                                                                      'survey_edit_datetime', 'survey_create_datetime',
                                                                      'envmeas_create_datetime',
                                                                      'lat_manual', 'long_manual',
@@ -811,7 +811,7 @@ class DownloadCleanJoinData:
                                                                            'subcore_diameter',
                                                                            'subcore_consistency_layer',
                                                                            'purpose_other_cores',
-                                                                           'collection_GlobalID',
+                                                                           'collection_global_id',
                                                                            'survey_edit_datetime',
                                                                            'survey_create_datetime',
                                                                            'collection_create_datetime',
@@ -849,7 +849,7 @@ class DownloadCleanJoinData:
                                                'number_subcores', 'subcore_length',
                                                'subcore_diameter', 'subcore_consistency_layer',
                                                'purpose_other_cores',
-                                               'collection_GlobalID',
+                                               'collection_global_id',
                                                'survey_edit_datetime', 'survey_create_datetime',
                                                'collection_create_datetime',
                                                'lat_manual', 'long_manual',
@@ -859,7 +859,7 @@ class DownloadCleanJoinData:
                                               columns=survey_subcore_join.columns,
                                               ).astype(survey_subcore_join.dtypes)
 
-            clean_subcore_join['sample_global_id'] = clean_subcore_join['collection_GlobalID'] + '-SC' + clean_subcore_join.index.astype(str)
+            clean_subcore_join['sample_global_id'] = clean_subcore_join['collection_global_id'] + '-SC' + clean_subcore_join.index.astype(str)
 
             survey_collection_join_output = survey_collection_join_output[['survey_global_id', 'survey_datetime',
                                                                            'survey_date',
@@ -881,7 +881,7 @@ class DownloadCleanJoinData:
                                                                            'core_diameter', 'core_notes',
                                                                            'subcores_taken',
                                                                            'purpose_other_cores',
-                                                                           'collection_GlobalID',
+                                                                           'collection_global_id',
                                                                            'survey_edit_datetime', 'survey_create_datetime',
                                                                            'collection_create_datetime',
                                                                            'lat_manual', 'long_manual',
@@ -899,7 +899,7 @@ class DownloadCleanJoinData:
 
             # filter + sample + survey join
             ss_filter_join = pd.merge(rep_filter_sub, survey_collection_join, how='left',
-                                      left_on='filter_ParentGlobalID', right_on='collection_GlobalID')
+                                      left_on='filter_ParentGlobalID', right_on='collection_global_id')
 
             # filter records
             # remove records only if both filter and label are not specified
@@ -915,7 +915,7 @@ class DownloadCleanJoinData:
                                                 'water_vessel_label', 'water_collect_notes', 'filter_datetime',
                                                 'is_prefilter', 'filter_type', 'filter_type_other',
                                                 'filter_label', 'filter_barcode',
-                                                'filter_notes', 'collection_GlobalID', 'filter_GlobalID',
+                                                'filter_notes', 'collection_global_id', 'filter_global_id',
                                                 'survey_edit_datetime', 'survey_create_datetime',
                                                 'collection_create_datetime', 'filter_create_datetime',
                                                 'lat_manual', 'long_manual', 'gps_cap_lat', 'gps_cap_long']].copy()
