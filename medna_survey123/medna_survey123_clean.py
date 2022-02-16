@@ -1020,6 +1020,20 @@ class UploadData:
                     if sheet.title == sheet_name:
                         sheet_id = sheet.id
                         api_logger.info("upload_data: sheetName {}, sheetId(GID) {} ".format(sheet.title, sheet.id))
+                api_logger.info("upload_data: Deleting " + sheet_name)
+                # https://stackoverflow.com/questions/60015321/how-to-reset-all-rows-and-column-data-uisng-python-gspread-sheets
+                delete_body = {
+                    'requests': [{
+                        'updateCells': {
+                            'range': {
+                                'sheetId': sheet_id,
+                                'startRowIndex': '1'
+                            },
+                            'fields': '*'
+                        }
+                    }]
+                }
+                spreadsheet.batch_update(body=delete_body)
                 api_logger.info("upload_data: Uploading " + sheet_name)
                 with open(upload, 'r') as csv_file:
                     contents = csv_file.read()
