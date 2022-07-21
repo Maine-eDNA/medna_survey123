@@ -36,6 +36,13 @@ GDRIVE_PRIVATE_KEY_FILE = MAIN_INPUT_STRIP_DIR+"your_private_key_file.json"
 GSHEETS_SPREADSHEET_NAME = "target_spreadsheet_name"
 
 ########################################
+# GOOGLE APPSCRIPTS SETTINGS           #
+# cannot be a service account, e.g., maine.edu
+########################################
+GOOGLE_APPSCRIPT_ID = "target_appscript_id"
+APPSCRIPT_FUNCTION_NAME = "target_function_name"
+
+########################################
 # SURVEY123 INPUT FILENAMES            #
 ########################################
 SURVEY_DATA = MAIN_INPUT_STRIP_DIR+"eDNA_Sampling_v14_0.csv"

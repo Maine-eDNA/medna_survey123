@@ -21,6 +21,10 @@ from zipfile import ZipFile
 # for google sheets upload
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+# for AppScripts API function call
+# import google.auth
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 
 def run_download_upload(formats, download=True, upload=True, overwrite=True,
@@ -46,6 +50,9 @@ def run_download_upload(formats, download=True, upload=True, overwrite=True,
                 if fmt == 'CSV':
                     upload = UploadData()
                     upload.upload_data()
+                    # Use google API to call createSummarySpreadsheets from AppScripts
+                    # this can only work if using a non-service account. Cannot use maine.edu to call AppScripts.
+                    # upload.call_appscripts_api()
         api_logger.info("[END] run_download_upload")
     except Exception as err:
         raise RuntimeError("** Error: run_download_upload Failed (" + str(err) + ")")
@@ -977,7 +984,9 @@ class UploadData:
                  survey_envmeas_join_filename=settings.SURVEY_ENVMEAS_JOIN_FILENAME,
                  survey_collection_join_filename=settings.SURVEY_COLLECTION_JOIN_FILENAME,
                  clean_filter_join_filename=settings.CLEAN_FILTER_JOIN_FILENAME,
-                 clean_subcore_join_filename=settings.CLEAN_SUBCORE_JOIN_FILENAME):
+                 clean_subcore_join_filename=settings.CLEAN_SUBCORE_JOIN_FILENAME,
+                 google_appscript_id=settings.GOOGLE_APPSCRIPT_ID,
+                 google_function_name=settings.APPSCRIPT_FUNCTION_NAME):
         self.gdrive_private_key = gdrive_private_key
         self.target_spreadsheet_name = target_spreadsheet_name
         self.main_output_dir = main_output_dir
@@ -987,6 +996,9 @@ class UploadData:
         self.survey_collection_join_filename = survey_collection_join_filename
         self.clean_filter_join_filename = clean_filter_join_filename
         self.clean_subcore_join_filename = clean_subcore_join_filename
+        # google appscript settings
+        self.google_appscript_id = google_appscript_id
+        self.google_function_name = google_function_name
 
     def upload_data(self):
         # https://medium.com/craftsmenltd/from-csv-to-google-sheet-using-python-ef097cb014f9
@@ -1065,3 +1077,62 @@ class UploadData:
             api_logger.info("[END] upload_data")
         except Exception as err:
             raise RuntimeError("** Error: upload_data Failed (" + str(err) + ")")
+
+    def call_appscripts_api(self):
+        # https://developers.google.com/apps-script/api/how-tos/execute#python
+        """Calls google appscripts.
+        Will not work with a service account, e.g., maine.edu
+        """
+        # pylint: disable=maybe-no-member
+        script_id = self.google_appscript_id
+        function_name = self.google_function_name
+        gdrive_private_key = self.gdrive_private_key
+
+        scope = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets",
+                 "https://www.googleapis.com/auth/script.send_mail", "https://www.googleapis.com/auth/script.external_request"]
+
+        creds = ServiceAccountCredentials.from_json_keyfile_name(gdrive_private_key, scope)
+        # client = gspread.authorize(credentials)
+
+        # creds, _ = google.auth.default()
+        service = build('script', 'v1', credentials=creds)
+
+        # Create an execution request object.
+        request = {"function": function_name}
+
+        try:
+            # Make the API request.
+            response = service.scripts().run(scriptId=script_id,
+                                             body=request).execute()
+            if 'error' in response:
+                # The API executed, but the script returned an error.
+                # Extract the first (and only) set of error details. The values of
+                # this object are the script's 'errorMessage' and 'errorType', and
+                # a list of stack trace elements.
+                error = response['error']['details'][0]
+                print(f"Script error message: {0}.{format(error['errorMessage'])}")
+
+                if 'scriptStackTraceElements' in error:
+                    # There may not be a stacktrace if the script didn't start
+                    # executing.
+                    print("Script error stacktrace:")
+                    for trace in error['scriptStackTraceElements']:
+                        print(f"\t{0}: {1}."
+                              f"{format(trace['function'], trace['lineNumber'])}")
+            else:
+                # The structure of the result depends upon what the Apps Script
+                # function returns. Here, the function returns an Apps Script
+                # Object with String keys and values, and so the result is
+                # treated as a Python dictionary (folder_set).
+                folder_set = response['response'].get('result', {})
+                if not folder_set:
+                    print('No folders returned!')
+                else:
+                    print('Folders under your root folder:')
+                    for (folder_id, folder) in folder_set.items():
+                        print(f"\t{0} ({1}).{format(folder, folder_id)}")
+
+        except HttpError as error:
+            # The API encountered a problem before the script started executing.
+            print(f"An error occurred: {error}")
+            print(error.content)
