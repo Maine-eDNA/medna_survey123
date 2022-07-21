@@ -39,6 +39,8 @@ GSHEETS_SPREADSHEET_NAME = "target_spreadsheet_name"
 # GOOGLE APPSCRIPTS SETTINGS           #
 # cannot be a service account, e.g., maine.edu
 ########################################
+# to get the appscript ID, follow these steps:
+# https://stackoverflow.com/questions/65773410/google-app-script-message-requested-entity-was-not-found-with-devmode
 GOOGLE_APPSCRIPT_ID = "target_appscript_id"
 APPSCRIPT_FUNCTION_NAME = "target_function_name"
 
