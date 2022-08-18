@@ -296,8 +296,11 @@ class DownloadCleanJoinData:
                     output_file = main_input_strip_dir + original_filename + file_extension
                     # "if" the file extension is .csv, then the following functions will be executed.
                     api_logger.info("clean_data: cleaning " + input_file)
-                    with open(input_file, 'r') as file_read:
-                        with open(output_file, "w") as file_write:
+                    # specifying an encoding, e.g., encoding='utf8' will throw errors. Not specifying an encoding
+                    # will also throw errors on different CSV files. Using errors='ignore' to bypass unknown characters
+                    # but could lead to some data-loss for those unknown characters.
+                    with open(input_file, mode='r', errors='ignore') as file_read:
+                        with open(output_file, mode='w') as file_write:
                             content = file_read.read()
                             # If the text fields have carriage returns, then the CSV will have extra
                             # lines. regex is used here to find these carriage returns in text fields and
