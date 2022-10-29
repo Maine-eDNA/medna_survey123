@@ -358,7 +358,45 @@ dev.off()
 #knitr::include_graphics(outputPngFileName)
 #rm(WBD_sfdf,ME_coast_sfdf)
 ```
+## Map of Index Sites + others (zoomed in)
+```{r}
+project_list=c("Index Sites (T3)")
+project_list = gsub("[()]", "", project_list)
 
+plotTitle = "Maine-eDNA Index Sites"
+
+# save plot in png format
+outputPngFileName <- file.path(outputPngFolder,paste0("s123_index_sids_other_zoom_map.png"))
+png(outputPngFileName,height=6,width=9, units='in', res=300)
+
+ggplot() + 
+  geom_sf(data=countries_sfdf, color="grey", fill="antiquewhite") +
+  geom_sf(data=WBD_sfdf, aes(fill=region_cod), alpha=0.1) +
+  geom_sf(data=lakes_sfdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=rivers_sfdf, color="lightblue", fill="lightblue") +
+  geom_sf(data=site_ids_sfdf, aes(fill="white"),pch=21, color="black", alpha=0.7, size=2) +
+  geom_sf(data=site_ids_sfdf %>%
+            dplyr::mutate(prj_sub = gsub(",", " ", project_ids)) %>%
+            dplyr::mutate(prj_sub = gsub("[()]", "",prj_sub)) %>%
+            dplyr::filter(grepl(paste(project_list, collapse="|"), prj_sub)), 
+          aes(fill="green"), pch=21, color="black", alpha=0.7, size=2) +
+  geom_text(data=WBD_sfdf, aes(x=lon, y=lat, label=region_cod),
+            color="black", fontface="bold", size=3, check_overlap=FALSE) +
+  coord_sf(xlim = c(boundingbox_sids$xmin[[1]]*1.01, boundingbox_sids$xmax[[1]]*0.99), 
+           ylim = c(boundingbox_sids$ymin[[1]]*0.99, boundingbox_sids$ymax[[1]]*1.01), expand = FALSE) + 
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue")) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle(plotTitle) +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="none",
+        text=element_text(size=18))
+
+dev.off()
+#knitr::include_graphics(outputPngFileName)
+#rm(WBD_sfdf,ME_coast_sfdf)
+```
 
 # SURVEY SUMMARY 
 * Jun, Jul, Aug (Summer)
