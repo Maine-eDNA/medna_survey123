@@ -28,14 +28,15 @@ source("medna_survey123.R")
 ## Check libraries & install
 LibraryList<-c("data.table","dplyr","lubridate","stringr","ggplot2","scales", "zoo", "tidyr", "gridExtra", "sf", "googlesheets4", "viridis")
 install_or_load_pack(LibraryList) 
+
+todaysDateFn = format(Sys.Date(), "%Y%m%d")
+
 overwrite = TRUE
 inputFolder = "../data/02_Working/PyOutput/"
 originalFolder = "../data/01_Original/"
-outputFolder = "../data/02_Working/ROutput/"
+# outputFolder = "../data/02_Working/ROutput/"
 
-outputPngFolder = "../figures/rcode/"
-
-todaysDateFn = format(Sys.Date(), "%Y%m%d")
+outputPngFolder = paste0("../figures/rcode/",todaysDateFn,"/")
 
 WGS84_SRID = 4326
 
